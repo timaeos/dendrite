@@ -681,9 +681,12 @@ func (d *Database) GetStateDeltas(
 	defer sqlutil.EndTransactionWithCheck(txn, &succeeded, &err)
 
 	var deltas []types.StateDelta
+	memberStateFilter := *stateFilter
+	memberStateFilter.Senders = []string{userID}
+	memberStateFilter.Types = []string{gomatrixserverlib.MRoomMember}
 
-	// get all the state events ever (i.e. for all available rooms) between these two positions
-	stateNeeded, eventMap, err := d.OutputEvents.SelectStateInRange(ctx, txn, r, stateFilter)
+	// Get the user's membership transitions for the rooms they are joined to.
+	stateNeeded, eventMap, err := d.OutputEvents.SelectStateInRange(ctx, txn, r, &memberStateFilter)
 	if err != nil {
 		return nil, nil, err
 	}
