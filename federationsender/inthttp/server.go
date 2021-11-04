@@ -28,6 +28,20 @@ func AddRoutes(intAPI api.FederationSenderInternalAPI, internalAPIMux *mux.Route
 		}),
 	)
 	internalAPIMux.Handle(
+		FederationSenderQueryServerJoinedToRoomPath,
+		httputil.MakeInternalAPI("QueryServerJoinedToRoom", func(req *http.Request) util.JSONResponse {
+			var request api.QueryServerJoinedToRoomRequest
+			var response api.QueryServerJoinedToRoomResponse
+			if err := json.NewDecoder(req.Body).Decode(&request); err != nil {
+				return util.ErrorResponse(err)
+			}
+			if err := intAPI.QueryServerJoinedToRoom(req.Context(), &request, &response); err != nil {
+				return util.ErrorResponse(err)
+			}
+			return util.JSONResponse{Code: http.StatusOK, JSON: &response}
+		}),
+	)
+	internalAPIMux.Handle(
 		FederationSenderPerformJoinRequestPath,
 		httputil.MakeInternalAPI("PerformJoinRequest", func(req *http.Request) util.JSONResponse {
 			var request api.PerformJoinRequest

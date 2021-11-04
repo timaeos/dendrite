@@ -56,6 +56,7 @@ type FederationSenderJoinedHosts interface {
 	SelectJoinedHosts(ctx context.Context, roomID string) ([]types.JoinedHost, error)
 	SelectAllJoinedHosts(ctx context.Context) ([]gomatrixserverlib.ServerName, error)
 	SelectJoinedHostsForRooms(ctx context.Context, roomIDs []string) ([]gomatrixserverlib.ServerName, error)
+	SelectServerJoinedToRoom(ctx context.Context, serverName gomatrixserverlib.ServerName, roomID string) (bool, error)
 }
 
 type FederationSenderBlacklist interface {

@@ -25,6 +25,16 @@ func (f *FederationSenderInternalAPI) QueryJoinedHostServerNamesInRoom(
 	return
 }
 
+// QueryJoinedHostServerNamesInRoom implements api.FederationSenderInternalAPI
+func (f *FederationSenderInternalAPI) QueryServerJoinedToRoom(
+	ctx context.Context,
+	request *api.QueryServerJoinedToRoomRequest,
+	response *api.QueryServerJoinedToRoomResponse,
+) (err error) {
+	response.Joined, err = f.db.GetServerJoinedToRoom(ctx, request.ServerName, request.RoomID)
+	return
+}
+
 func (a *FederationSenderInternalAPI) fetchServerKeysDirectly(ctx context.Context, serverName gomatrixserverlib.ServerName) (*gomatrixserverlib.ServerKeys, error) {
 	ctx, cancel := context.WithTimeout(ctx, time.Second*30)
 	defer cancel()

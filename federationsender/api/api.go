@@ -48,6 +48,12 @@ type FederationSenderInternalAPI interface {
 		request *PerformDirectoryLookupRequest,
 		response *PerformDirectoryLookupResponse,
 	) error
+	// QueryServerJoinedToRoom checks if a single server is in a room right now.
+	QueryServerJoinedToRoom(
+		ctx context.Context,
+		request *QueryServerJoinedToRoomRequest,
+		response *QueryServerJoinedToRoomResponse,
+	) error
 	// Query the server names of the joined hosts in a room.
 	// Unlike QueryJoinedHostsInRoom, this function returns a de-duplicated slice
 	// containing only the server names (without information for membership events).
@@ -181,6 +187,17 @@ type QueryJoinedHostServerNamesInRoomRequest struct {
 // QueryJoinedHostServerNamesInRoomResponse is a response to QueryJoinedHostServerNames
 type QueryJoinedHostServerNamesInRoomResponse struct {
 	ServerNames []gomatrixserverlib.ServerName `json:"server_names"`
+}
+
+// QueryJoinedHostServerNamesInRoomRequest is a request to QueryJoinedHostServerNames
+type QueryServerJoinedToRoomRequest struct {
+	ServerName gomatrixserverlib.ServerName `json:"server_name"`
+	RoomID     string                       `json:"room_id"`
+}
+
+// QueryJoinedHostServerNamesInRoomResponse is a response to QueryJoinedHostServerNames
+type QueryServerJoinedToRoomResponse struct {
+	Joined bool `json:"joined"`
 }
 
 type PerformBroadcastEDURequest struct {

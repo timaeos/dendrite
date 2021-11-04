@@ -66,6 +66,9 @@ const selectAllJoinedHostsSQL = "" +
 const selectJoinedHostsForRoomsSQL = "" +
 	"SELECT DISTINCT server_name FROM federationsender_joined_hosts WHERE room_id IN ($1)"
 
+const selectServerJoinedToRoomSQL = "" +
+	"SELECT COUNT(*) FROM federation_sender_joined_hosts WHERE server_name = $1 AND room_id = $2"
+
 type joinedHostsStatements struct {
 	db                           *sql.DB
 	insertJoinedHostsStmt        *sql.Stmt
@@ -74,6 +77,7 @@ type joinedHostsStatements struct {
 	selectJoinedHostsStmt        *sql.Stmt
 	selectAllJoinedHostsStmt     *sql.Stmt
 	// selectJoinedHostsForRoomsStmt *sql.Stmt - prepared at runtime due to variadic
+	selectServerJoinedToRoomStmt *sql.Stmt
 }
 
 func NewSQLiteJoinedHostsTable(db *sql.DB) (s *joinedHostsStatements, err error) {
@@ -97,6 +101,9 @@ func NewSQLiteJoinedHostsTable(db *sql.DB) (s *joinedHostsStatements, err error)
 		return
 	}
 	if s.selectAllJoinedHostsStmt, err = db.Prepare(selectAllJoinedHostsSQL); err != nil {
+		return
+	}
+	if s.selectServerJoinedToRoomStmt, err = s.db.Prepare(selectServerJoinedToRoomSQL); err != nil {
 		return
 	}
 	return
@@ -144,6 +151,20 @@ func (s *joinedHostsStatements) SelectJoinedHosts(
 	ctx context.Context, roomID string,
 ) ([]types.JoinedHost, error) {
 	return joinedHostsFromStmt(ctx, s.selectJoinedHostsStmt, roomID)
+}
+
+func (s *joinedHostsStatements) SelectServerJoinedToRoom(
+	ctx context.Context, serverName gomatrixserverlib.ServerName, roomID string,
+) (bool, error) {
+	row := s.selectServerJoinedToRoomStmt.QueryRowContext(ctx, serverName, roomID)
+	if err := row.Err(); err != nil {
+		return false, err
+	}
+	var count int
+	if err := row.Scan(&count); err != nil {
+		return false, err
+	}
+	return count > 0, nil
 }
 
 func (s *joinedHostsStatements) SelectAllJoinedHosts(
