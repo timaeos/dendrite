@@ -376,8 +376,10 @@ func (r *Queryer) QueryServerAllowedToSeeEvent(
 	if info == nil {
 		return fmt.Errorf("QueryServerAllowedToSeeEvent: no room info for room %s", roomID)
 	}
-	response.AllowedToSeeEvent, err = helpers.CheckServerAllowedToSeeEvent(
-		ctx, r.DB, *info, request.EventID, request.ServerName, inRoomRes.IsInRoom,
+
+	c := helpers.NewCheckServerAllowedToSeeEventContext(ctx, r.DB, *info)
+	response.AllowedToSeeEvent, err = c.CheckServerAllowedToSeeEvent(
+		request.EventID, request.ServerName, inRoomRes.IsInRoom,
 	)
 	return
 }
