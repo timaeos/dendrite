@@ -27,19 +27,73 @@ import (
 	"github.com/opentracing/opentracing-go/ext"
 )
 
+type InternalAPIError interface {
+	error
+	Temporary() bool
+	Remote() bool
+	isInternalAPIError()
+}
+
+// internalAPICallError represents an error reaching an internal API.
+type internalAPICallError struct {
+	err       error
+	temporary bool
+}
+
+func (e *internalAPICallError) isInternalAPIError() {}
+
+func (e *internalAPICallError) Error() string {
+	return fmt.Sprintf("internal API call failed: %s", e.err.Error())
+}
+
+func (e *internalAPICallError) Remote() bool {
+	return false
+}
+
+func (e *internalAPICallError) Temporary() bool {
+	return e.temporary
+}
+
+// internalAPIRemoteError represents an error returned from a internal API.
+type internalAPIRemoteError struct {
+	code int
+	url  string
+	err  string
+}
+
+func (e *internalAPIRemoteError) isInternalAPIError() {}
+
+func (e *internalAPIRemoteError) Error() string {
+	return fmt.Sprintf("internal API %s returned HTTP %d: %s", e.url, e.code, e.err)
+}
+
+func (e *internalAPIRemoteError) Remote() bool {
+	return true
+}
+
+func (e *internalAPIRemoteError) Temporary() bool {
+	return e.code >= 500
+}
+
 // PostJSON performs a POST request with JSON on an internal HTTP API
 func PostJSON(
 	ctx context.Context, span opentracing.Span, httpClient *http.Client,
 	apiURL string, request, response interface{},
-) error {
+) InternalAPIError {
 	jsonBytes, err := json.Marshal(request)
 	if err != nil {
-		return err
+		return &internalAPICallError{
+			err:       err,
+			temporary: false,
+		}
 	}
 
 	parsedAPIURL, err := url.Parse(apiURL)
 	if err != nil {
-		return err
+		return &internalAPICallError{
+			err:       err,
+			temporary: false,
+		}
 	}
 
 	parsedAPIURL.Path = InternalPathPrefix + strings.TrimLeft(parsedAPIURL.Path, "/")
@@ -47,7 +101,10 @@ func PostJSON(
 
 	req, err := http.NewRequest(http.MethodPost, apiURL, bytes.NewReader(jsonBytes))
 	if err != nil {
-		return err
+		return &internalAPICallError{
+			err:       err,
+			temporary: false,
+		}
 	}
 
 	// Mark the span as being an RPC client.
@@ -56,7 +113,10 @@ func PostJSON(
 	tracer := opentracing.GlobalTracer()
 
 	if err = tracer.Inject(span.Context(), opentracing.HTTPHeaders, carrier); err != nil {
-		return err
+		return &internalAPICallError{
+			err:       err,
+			temporary: true,
+		}
 	}
 
 	req.Header.Set("Content-Type", "application/json")
@@ -66,16 +126,33 @@ func PostJSON(
 		defer (func() { err = res.Body.Close() })()
 	}
 	if err != nil {
-		return err
+		return &internalAPICallError{
+			err:       err,
+			temporary: true,
+		}
 	}
 	if res.StatusCode != http.StatusOK {
 		var errorBody struct {
 			Message string `json:"message"`
 		}
 		if msgerr := json.NewDecoder(res.Body).Decode(&errorBody); msgerr == nil {
-			return fmt.Errorf("internal API: %d from %s: %s", res.StatusCode, apiURL, errorBody.Message)
+			return &internalAPIRemoteError{
+				err:  errorBody.Message,
+				url:  apiURL,
+				code: res.StatusCode,
+			}
 		}
-		return fmt.Errorf("internal API: %d from %s", res.StatusCode, apiURL)
+		return &internalAPIRemoteError{
+			err:  "unknown error",
+			url:  apiURL,
+			code: res.StatusCode,
+		}
 	}
-	return json.NewDecoder(res.Body).Decode(response)
+	if err := json.NewDecoder(res.Body).Decode(response); err != nil {
+		return &internalAPICallError{
+			err:       err,
+			temporary: false,
+		}
+	}
+	return nil
 }
