@@ -530,10 +530,10 @@ func SendJoin(
 		}
 	}
 	if joinRule.JoinRule == gomatrixserverlib.Restricted {
-		if ev, err := verifyRestrictedMembershipForSendJoin(
+		if signedEvent, err := verifyRestrictedMembershipForSendJoin(
 			httpReq.Context(), cfg, rsAPI, provider, event, joinRule,
 		); err == nil {
-			event = ev
+			event = signedEvent
 		} else {
 			logrus.WithError(err).Error("Failed to verify restricted join")
 			return util.JSONResponse{
@@ -603,6 +603,13 @@ func verifyRestrictedMembershipForSendJoin(
 		return nil, fmt.Errorf("json.Unmarshal(memberContent): %w", err)
 	}
 
+	// If there's no `join_authorised_via_users_server` key then there's
+	// nothing else to do. Return the original event and it'll either
+	// succeed for some other reason or it will fail auth.
+	if memberContent.AuthorisedVia == "" {
+		return event, nil
+	}
+
 	// As a last effort, see if any of the restricted join rules match.
 	// If so, we might be able to modify and sign the event so that it
 	// does pass auth.
@@ -649,9 +656,7 @@ func verifyRestrictedMembershipForSendJoin(
 			continue
 		}
 
-		// Now look through all of the join events of the other members. Our goal
-		// is to try and find a user from our own server that has a suitable power
-		// level to popuate into the `join_authorised_via_users_server` field.
+		// Now look through all of the join events of the nominated user.
 		for _, member := range queryRes.JoinEvents {
 			// Check if the user is the selected user from the join event.
 			if *member.StateKey != memberContent.AuthorisedVia {
@@ -669,7 +674,7 @@ func verifyRestrictedMembershipForSendJoin(
 		}
 	}
 
-	return event, nil
+	return nil, fmt.Errorf("the required memberships were not satisfied")
 }
 
 type eventsByDepth []*gomatrixserverlib.HeaderedEvent
