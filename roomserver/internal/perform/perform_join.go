@@ -275,6 +275,7 @@ func (r *Joiner) performJoinRoomByID(
 			}
 
 			var serverName gomatrixserverlib.ServerName
+			req.ServerNames = req.ServerNames[:0]
 		joinEvents:
 			for userID, pl := range powerLevelsContent.Users {
 				if pl <= powerLevelsContent.Invite {
