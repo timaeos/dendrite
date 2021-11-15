@@ -259,10 +259,35 @@ func (r *Joiner) performJoinRoomByID(
 			}
 		}
 		if !success {
-			return "", "", &api.PerformError{
-				Code: rsAPI.PerformErrorBadRequest,
-				Msg:  fmt.Sprintf("Can't satisfy restricted join to room %q locally", req.RoomIDOrAlias),
+			queryReq := &api.QueryMembershipsForRoomRequest{}
+			queryRes := &api.QueryMembershipsForRoomResponse{}
+			if err = r.RSAPI.QueryMembershipsForRoom(ctx, queryReq, queryRes); err != nil {
+				return "", "", &api.PerformError{
+					Code: rsAPI.PerformErrorBadRequest,
+					Msg:  fmt.Sprintf("Can't satisfy restricted join to room %q locally: %s", req.RoomIDOrAlias, err),
+				}
 			}
+
+			var serverName gomatrixserverlib.ServerName
+		joinEvents:
+			for _, q := range queryRes.JoinEvents {
+				_, serverName, err = gomatrixserverlib.SplitID('@', *q.StateKey)
+				if err != nil {
+					continue
+				}
+				for _, s := range req.ServerNames {
+					if s == r.Cfg.Matrix.ServerName {
+						continue
+					}
+					if s == serverName {
+						continue joinEvents
+					}
+				}
+				req.ServerNames = append(req.ServerNames, serverName)
+			}
+
+			joinedVia, err = r.performFederatedJoinRoomByID(ctx, req)
+			return req.RoomIDOrAlias, joinedVia, err
 		}
 	}
 
