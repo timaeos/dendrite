@@ -25,6 +25,7 @@ import (
 	"github.com/getsentry/sentry-go"
 	fsAPI "github.com/matrix-org/dendrite/federationsender/api"
 	"github.com/matrix-org/dendrite/internal/eventutil"
+	"github.com/matrix-org/dendrite/roomserver/api"
 	rsAPI "github.com/matrix-org/dendrite/roomserver/api"
 	"github.com/matrix-org/dendrite/roomserver/internal/helpers"
 	"github.com/matrix-org/dendrite/roomserver/internal/input"
@@ -258,10 +259,10 @@ func (r *Joiner) performJoinRoomByID(
 			}
 		}
 		if !success {
-			// We haven't been able to validate the join using any of our own
-			// local users, so we now need to depend on a remote server to help.
-			joinedVia, err = r.performFederatedJoinRoomByID(ctx, req)
-			return req.RoomIDOrAlias, joinedVia, err
+			return "", "", &api.PerformError{
+				Code: rsAPI.PerformErrorBadRequest,
+				Msg:  fmt.Sprintf("Can't satisfy restricted join to room %q locally", req.RoomIDOrAlias),
+			}
 		}
 	}
 
