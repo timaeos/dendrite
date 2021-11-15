@@ -262,7 +262,10 @@ func (r *FederationSenderInternalAPI) performJoinUsingServer(
 		// Find the membership event.
 		var joinEvent *gomatrixserverlib.Event
 		for _, stateEvent := range respState.StateEvents {
-			if stateEvent.EventID() == event.EventID() {
+			if stateEvent.Type() != gomatrixserverlib.MRoomMember {
+				continue
+			}
+			if stateEvent.StateKeyEquals(*event.StateKey()) {
 				joinEvent = event
 				break
 			}
