@@ -571,31 +571,6 @@ func SendJoin(
 		}
 	}
 
-	// Since we performed QueryStateAndAuthChain before we sent the membership event to the
-	// roomserver, we need to ensure that the stateAndAuthChainResponse contain the new join
-	// event. It would be expensive to call QueryStateAndAuthChain again, so we'll just modify
-	// the response in situ.
-	replaced := false
-	for i := range stateAndAuthChainResponse.StateEvents {
-		stateEvent := stateAndAuthChainResponse.StateEvents[i]
-		if event.Type() != gomatrixserverlib.MRoomMember {
-			continue
-		}
-		if stateEvent.StateKeyEquals(*event.StateKey()) {
-			stateAndAuthChainResponse.StateEvents[i] = event.Headered(
-				stateAndAuthChainResponse.RoomVersion,
-			)
-			replaced = true
-			break
-		}
-	}
-	if !replaced {
-		stateAndAuthChainResponse.StateEvents = append(
-			stateAndAuthChainResponse.StateEvents,
-			event.Headered(stateAndAuthChainResponse.RoomVersion),
-		)
-	}
-
 	// sort events deterministically by depth (lower is earlier)
 	// We also do this because sytest's basic federation server isn't good at using the correct
 	// state if these lists are randomised, resulting in flakey tests. :(
@@ -606,6 +581,7 @@ func SendJoin(
 	return util.JSONResponse{
 		Code: http.StatusOK,
 		JSON: gomatrixserverlib.RespSendJoin{
+			Event:       event,
 			StateEvents: gomatrixserverlib.UnwrapEventHeaders(stateAndAuthChainResponse.StateEvents),
 			AuthEvents:  gomatrixserverlib.UnwrapEventHeaders(stateAndAuthChainResponse.AuthChainEvents),
 			Origin:      cfg.Matrix.ServerName,

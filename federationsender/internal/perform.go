@@ -247,6 +247,13 @@ func (r *FederationSenderInternalAPI) performJoinUsingServer(
 		defer close(waiterr)
 		defer cancel()
 
+		// If the remote server returned a signed membership event then
+		// we will use that instead. That is necessary for restricted
+		// joins to work.
+		if respSendJoin.Event != nil {
+			event = respSendJoin.Event
+		}
+
 		// TODO: Can we expand Check here to return a list of missing auth
 		// events rather than failing one at a time?
 		respState, err := respSendJoin.Check(ctx, r.keyRing, event, federatedAuthProvider(ctx, r.federation, r.keyRing, serverName))
@@ -259,27 +266,6 @@ func (r *FederationSenderInternalAPI) performJoinUsingServer(
 			return
 		}
 
-		// Find the membership event.
-		var joinEvent *gomatrixserverlib.Event
-		for _, stateEvent := range respState.StateEvents {
-			if stateEvent.Type() != gomatrixserverlib.MRoomMember {
-				continue
-			}
-			if stateEvent.StateKeyEquals(*event.StateKey()) {
-				joinEvent = event
-				break
-			}
-		}
-		if joinEvent == nil {
-			err = fmt.Errorf("The remote server did not send back our join event")
-			logrus.WithFields(logrus.Fields{
-				"room_id": roomID,
-				"user_id": userID,
-			}).WithError(err).Error("Found no membership event")
-			waiterr <- err
-			return
-		}
-
 		// If we successfully performed a send_join above then the other
 		// server now thinks we're a part of the room. Send the newly
 		// returned state to the roomserver to update our local view.
@@ -287,7 +273,7 @@ func (r *FederationSenderInternalAPI) performJoinUsingServer(
 			ctx, r.rsAPI,
 			roomserverAPI.KindNew,
 			respState,
-			joinEvent.Headered(respMakeJoin.RoomVersion),
+			event.Headered(respMakeJoin.RoomVersion),
 			nil,
 		); err != nil {
 			logrus.WithFields(logrus.Fields{
