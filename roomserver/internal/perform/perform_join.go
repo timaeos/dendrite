@@ -25,7 +25,6 @@ import (
 	"github.com/getsentry/sentry-go"
 	fsAPI "github.com/matrix-org/dendrite/federationsender/api"
 	"github.com/matrix-org/dendrite/internal/eventutil"
-	"github.com/matrix-org/dendrite/roomserver/api"
 	rsAPI "github.com/matrix-org/dendrite/roomserver/api"
 	"github.com/matrix-org/dendrite/roomserver/internal/helpers"
 	"github.com/matrix-org/dendrite/roomserver/internal/input"
@@ -259,19 +258,29 @@ func (r *Joiner) performJoinRoomByID(
 			}
 		}
 		if !success {
-			queryReq := &api.QueryMembershipsForRoomRequest{}
-			queryRes := &api.QueryMembershipsForRoomResponse{}
-			if err = r.RSAPI.QueryMembershipsForRoom(ctx, queryReq, queryRes); err != nil {
-				return "", "", &api.PerformError{
-					Code: rsAPI.PerformErrorBadRequest,
-					Msg:  fmt.Sprintf("Can't satisfy restricted join to room %q locally: %s", req.RoomIDOrAlias, err),
+			var powerLevelsEvent *gomatrixserverlib.HeaderedEvent
+			var powerLevelsContent gomatrixserverlib.PowerLevelContent
+			powerLevelsEvent, err = r.DB.GetStateEvent(ctx, req.RoomIDOrAlias, gomatrixserverlib.MRoomPowerLevels, "")
+			if err != nil {
+				return "", "", &rsAPI.PerformError{
+					Code: rsAPI.PerformErrorNotAllowed,
+					Msg:  fmt.Sprintf("Unable to retrieve the power levels: %s", err),
+				}
+			}
+			if err = json.Unmarshal(powerLevelsEvent.Content(), &powerLevelsContent); err != nil {
+				return "", "", &rsAPI.PerformError{
+					Code: rsAPI.PerformErrorNotAllowed,
+					Msg:  fmt.Sprintf("Unable to parse the power levels: %s", err),
 				}
 			}
 
 			var serverName gomatrixserverlib.ServerName
 		joinEvents:
-			for _, q := range queryRes.JoinEvents {
-				_, serverName, err = gomatrixserverlib.SplitID('@', *q.StateKey)
+			for userID, pl := range powerLevelsContent.Users {
+				if pl <= powerLevelsContent.Invite {
+					continue
+				}
+				_, serverName, err = gomatrixserverlib.SplitID('@', userID)
 				if err != nil {
 					continue
 				}
