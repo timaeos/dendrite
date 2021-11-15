@@ -132,6 +132,7 @@ func (r *FederationSenderInternalAPI) PerformJoin(
 	)
 }
 
+// nolint:gocyclo
 func (r *FederationSenderInternalAPI) performJoinUsingServer(
 	ctx context.Context,
 	roomID, userID string,
@@ -256,6 +257,37 @@ func (r *FederationSenderInternalAPI) performJoinUsingServer(
 			return
 		}
 
+		// Find the membership event.
+		var joinEvent *gomatrixserverlib.Event
+		var membership string
+		for _, event := range respState.StateEvents {
+			stateKey := event.StateKey()
+			if stateKey == nil {
+				continue
+			}
+			if *stateKey != userID {
+				continue
+			}
+			membership, err = event.Membership()
+			if err != nil {
+				continue
+			}
+			if membership != gomatrixserverlib.Join {
+				continue
+			}
+			joinEvent = event
+			break
+		}
+		if joinEvent == nil {
+			err = fmt.Errorf("The remote server did not send back our join event")
+			logrus.WithFields(logrus.Fields{
+				"room_id": roomID,
+				"user_id": userID,
+			}).WithError(err).Error("Found no membership event")
+			waiterr <- err
+			return
+		}
+
 		// If we successfully performed a send_join above then the other
 		// server now thinks we're a part of the room. Send the newly
 		// returned state to the roomserver to update our local view.
@@ -263,7 +295,7 @@ func (r *FederationSenderInternalAPI) performJoinUsingServer(
 			ctx, r.rsAPI,
 			roomserverAPI.KindNew,
 			respState,
-			event.Headered(respMakeJoin.RoomVersion),
+			joinEvent.Headered(respMakeJoin.RoomVersion),
 			nil,
 		); err != nil {
 			logrus.WithFields(logrus.Fields{
