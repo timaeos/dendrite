@@ -604,8 +604,9 @@ func verifyRestrictedMembershipForSendJoin(
 	}
 
 	// If there's no `join_authorised_via_users_server` key then there's
-	// nothing else to do. Return the original event and it'll either
-	// succeed for some other reason or it will fail auth.
+	// nothing else to do. This might be because it's a join -> join transition
+	// or the response to an invite. Return the original event and it'll either
+	// pass auth for some other reason or it will fail auth correctly.
 	if memberContent.AuthorisedVia == "" {
 		return event, nil
 	}

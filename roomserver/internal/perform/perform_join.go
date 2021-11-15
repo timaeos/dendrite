@@ -250,10 +250,18 @@ func (r *Joiner) performJoinRoomByID(
 	if restricted, roomIDs, rerr := r.checkIfRestrictedJoin(ctx, req); rerr != nil {
 		return "", "", err
 	} else if restricted {
+		success := false
 		for _, roomID := range roomIDs {
 			if err = r.attemptRestrictedJoinUsingRoomID(ctx, req, roomID, &eb); err == nil {
+				success = true
 				break
 			}
+		}
+		if !success {
+			// We haven't been able to validate the join using any of our own
+			// local users, so we now need to depend on a remote server to help.
+			joinedVia, err = r.performFederatedJoinRoomByID(ctx, req)
+			return req.RoomIDOrAlias, joinedVia, err
 		}
 	}
 
