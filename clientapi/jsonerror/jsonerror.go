@@ -173,7 +173,7 @@ func IncompatibleRoomVersion(roomVersion gomatrixserverlib.RoomVersion) *Incompa
 	return &IncompatibleRoomVersionError{
 		Code:        "M_INCOMPATIBLE_ROOM_VERSION",
 		RoomVersion: string(roomVersion),
-		Error:       "Your homeserver does not support the features required to join this room",
+		Error:       fmt.Sprintf("Your homeserver does not support the features required to join this version %q room", roomVersion),
 	}
 }
 
