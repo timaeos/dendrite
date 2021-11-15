@@ -577,12 +577,14 @@ func SendJoin(
 	// the response in situ.
 	replaced := false
 	for i := range stateAndAuthChainResponse.StateEvents {
-		event := stateAndAuthChainResponse.StateEvents[i]
+		stateEvent := stateAndAuthChainResponse.StateEvents[i]
 		if event.Type() != gomatrixserverlib.MRoomMember {
 			continue
 		}
-		if event.StateKeyEquals(*event.StateKey()) {
-			stateAndAuthChainResponse.StateEvents[i] = event
+		if stateEvent.StateKeyEquals(*event.StateKey()) {
+			stateAndAuthChainResponse.StateEvents[i] = event.Headered(
+				stateAndAuthChainResponse.RoomVersion,
+			)
 			replaced = true
 			break
 		}

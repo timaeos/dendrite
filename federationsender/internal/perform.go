@@ -209,6 +209,8 @@ func (r *FederationSenderInternalAPI) performJoinUsingServer(
 		return fmt.Errorf("respMakeJoin.JoinEvent.Build: %w", err)
 	}
 
+	fmt.Println("Join event:", event.EventID())
+
 	// No longer reuse the request context from this point forward.
 	// We don't want the client timing out to interrupt the join.
 	var cancel context.CancelFunc
