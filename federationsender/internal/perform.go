@@ -259,24 +259,11 @@ func (r *FederationSenderInternalAPI) performJoinUsingServer(
 
 		// Find the membership event.
 		var joinEvent *gomatrixserverlib.Event
-		var membership string
-		for _, event := range respState.StateEvents {
-			stateKey := event.StateKey()
-			if stateKey == nil {
-				continue
+		for _, stateEvent := range respState.StateEvents {
+			if stateEvent.EventID() == event.EventID() {
+				joinEvent = event
+				break
 			}
-			if *stateKey != userID {
-				continue
-			}
-			membership, err = event.Membership()
-			if err != nil {
-				continue
-			}
-			if membership != gomatrixserverlib.Join {
-				continue
-			}
-			joinEvent = event
-			break
 		}
 		if joinEvent == nil {
 			err = fmt.Errorf("The remote server did not send back our join event")
