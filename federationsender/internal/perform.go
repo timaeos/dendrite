@@ -83,6 +83,18 @@ func (r *FederationSenderInternalAPI) PerformJoin(
 	}
 	request.ServerNames = uniqueList
 
+	// If there are no servers to join via then, well, don't bother.
+	if len(request.ServerNames) == 0 {
+		response.LastError = &gomatrix.HTTPError{
+			Code: 400,
+			Message: `{
+				"errcode": "M_MISSING_PARAM",
+				"error": "No servers were supplied in the request."
+			}`, // TODO: Why do none of our error types play nicely with each other?
+		}
+		return
+	}
+
 	// Try each server that we were provided until we land on one that
 	// successfully completes the make-join send-join dance.
 	var lastErr error
