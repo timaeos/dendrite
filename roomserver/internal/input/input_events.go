@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"time"
 
+	fedapi "github.com/matrix-org/dendrite/federationapi/api"
 	"github.com/matrix-org/dendrite/internal/eventutil"
 	"github.com/matrix-org/dendrite/roomserver/api"
 	"github.com/matrix-org/dendrite/roomserver/internal/helpers"
@@ -62,7 +63,7 @@ var processRoomEventDuration = prometheus.NewHistogramVec(
 func (r *Inputer) processRoomEvent(
 	ctx context.Context,
 	input *api.InputRoomEvent,
-) (eventID string, err error) {
+) (string, error) {
 	// Measure how long it takes to process this event.
 	started := time.Now()
 	defer func() {
@@ -98,6 +99,12 @@ func (r *Inputer) processRoomEvent(
 		}
 	}
 
+	// First of all, check that the auth events of the event are known.
+	// If they aren't then we will ask the federation API for them.
+	if err := r.checkForMissingAuthEvents(ctx, input); err != nil {
+		return "", fmt.Errorf("r.checkForMissingAuthEvents: %w", err)
+	}
+
 	// Check that the event passes authentication checks and work out
 	// the numeric IDs for the auth events.
 	isRejected := false
@@ -107,10 +114,17 @@ func (r *Inputer) processRoomEvent(
 		isRejected = true
 	}
 
+	// Then check if the prev events are known, which we need in order
+	// to calculate the state before the event.
+	if err := r.checkForMissingAuthEvents(ctx, input); err != nil {
+		return "", fmt.Errorf("r.checkForMissingAuthEvents: %w", err)
+	}
+
 	var softfail bool
 	if input.Kind == api.KindNew {
 		// Check that the event passes authentication checks based on the
 		// current room state.
+		var err error
 		softfail, err = helpers.CheckForSoftFail(ctx, r.DB, headered, input.StateEventIDs)
 		if err != nil {
 			logrus.WithFields(logrus.Fields{
@@ -226,6 +240,54 @@ func (r *Inputer) processRoomEvent(
 
 	// Update the extremities of the event graph for the room
 	return event.EventID(), nil
+}
+
+func (r *Inputer) checkForMissingAuthEvents(
+	ctx context.Context,
+	input *api.InputRoomEvent,
+) error {
+	authEventIDs := input.Event.AuthEventIDs()
+	if len(authEventIDs) == 0 {
+		return nil
+	}
+
+	knownAuthEventNIDs, err := r.DB.EventNIDs(ctx, authEventIDs)
+	if err != nil {
+		return fmt.Errorf("r.DB.EventNIDs: %w", err)
+	}
+
+	missingAuthEventIDs := make([]string, 0, len(authEventIDs)-len(knownAuthEventNIDs))
+	for _, authEventID := range authEventIDs {
+		if _, ok := knownAuthEventNIDs[authEventID]; !ok {
+			missingAuthEventIDs = append(missingAuthEventIDs, authEventID)
+		}
+	}
+
+	if len(missingAuthEventIDs) > 0 {
+		req := &fedapi.QueryEventAuthFromFederationRequest{
+			RoomID:  input.Event.RoomID(),
+			EventID: input.Event.EventID(),
+		}
+		res := &fedapi.QueryEventAuthFromFederationResponse{}
+		if err := r.FSAPI.QueryEventAuthFromFederation(ctx, req, res); err != nil {
+			return fmt.Errorf("r.FSAPI.QueryEventAuthFromFederation: %w", err)
+		}
+
+		authEventNIDs, rejection := helpers.CheckAuthEvents(ctx, r.DB, input.Event, input.AuthEventIDs)
+		if _, _, _, _, err := r.DB.StoreEvent(ctx, input.Event.Event, authEventNIDs, rejection != nil); err != nil {
+			return fmt.Errorf("r.DB.StoreEvent: %w", err)
+		}
+	}
+
+	return nil
+}
+
+func (r *Inputer) checkForMissingPrevEvents(
+	ctx context.Context,
+	input *api.InputRoomEvent,
+) error {
+
+	return nil
 }
 
 func (r *Inputer) calculateAndSetState(

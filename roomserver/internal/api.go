@@ -61,13 +61,6 @@ func NewRoomserverAPI(
 			ServerName: cfg.Matrix.ServerName,
 			ServerACLs: serverACLs,
 		},
-		Inputer: &input.Inputer{
-			DB:                   roomserverDB,
-			OutputRoomEventTopic: outputRoomEventTopic,
-			Producer:             producer,
-			ServerName:           cfg.Matrix.ServerName,
-			ACLs:                 serverACLs,
-		},
 		// perform-er structs get initialised when we have a federation sender to use
 	}
 	return a
@@ -86,6 +79,14 @@ func (r *RoomserverInternalAPI) SetFederationAPI(fsAPI fsAPI.FederationInternalA
 	r.fsAPI = fsAPI
 	r.SetKeyring(fsAPI.KeyRing())
 
+	r.Inputer = &input.Inputer{
+		DB:                   r.DB,
+		OutputRoomEventTopic: r.OutputRoomEventTopic,
+		Producer:             r.Producer,
+		ServerName:           r.Cfg.Matrix.ServerName,
+		ACLs:                 r.ACLs,
+		FSAPI:                r.fsAPI,
+	}
 	r.Inviter = &perform.Inviter{
 		DB:      r.DB,
 		Cfg:     r.Cfg,
