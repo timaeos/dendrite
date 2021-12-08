@@ -37,6 +37,7 @@ type RoomserverInternalAPI struct {
 	Cache                  caching.RoomServerCaches
 	ServerName             gomatrixserverlib.ServerName
 	KeyRing                gomatrixserverlib.JSONVerifier
+	ACLs                   *acls.ServerACLs
 	fsAPI                  fsAPI.FederationInternalAPI
 	asAPI                  asAPI.AppServiceQueryAPI
 	OutputRoomEventTopic   string // Kafka topic for new output room events
@@ -55,6 +56,8 @@ func NewRoomserverAPI(
 		Cache:                  caches,
 		ServerName:             cfg.Matrix.ServerName,
 		PerspectiveServerNames: perspectiveServerNames,
+		ACLs:                   serverACLs,
+		Producer:               producer,
 		Queryer: &query.Queryer{
 			DB:         roomserverDB,
 			Cache:      caches,

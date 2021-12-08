@@ -116,8 +116,8 @@ func (r *Inputer) processRoomEvent(
 
 	// Then check if the prev events are known, which we need in order
 	// to calculate the state before the event.
-	if err := r.checkForMissingAuthEvents(ctx, input); err != nil {
-		return "", fmt.Errorf("r.checkForMissingAuthEvents: %w", err)
+	if err := r.checkForMissingPrevEvents(ctx, input); err != nil {
+		return "", fmt.Errorf("r.checkForMissingPrevEvents: %w", err)
 	}
 
 	var softfail bool
@@ -251,10 +251,14 @@ func (r *Inputer) checkForMissingAuthEvents(
 		return nil
 	}
 
+	logrus.Printf("XXX: Auth event IDs: %+v", authEventIDs)
+
 	knownAuthEventNIDs, err := r.DB.EventNIDs(ctx, authEventIDs)
 	if err != nil {
 		return fmt.Errorf("r.DB.EventNIDs: %w", err)
 	}
+
+	logrus.Printf("XXX: Known auth event IDs: %+v", knownAuthEventNIDs)
 
 	missingAuthEventIDs := make([]string, 0, len(authEventIDs)-len(knownAuthEventNIDs))
 	for _, authEventID := range authEventIDs {
@@ -262,6 +266,8 @@ func (r *Inputer) checkForMissingAuthEvents(
 			missingAuthEventIDs = append(missingAuthEventIDs, authEventID)
 		}
 	}
+
+	logrus.Printf("XXX: Missing auth event IDs: %+v", missingAuthEventIDs)
 
 	if len(missingAuthEventIDs) > 0 {
 		req := &fedapi.QueryEventAuthFromFederationRequest{
