@@ -17,6 +17,9 @@ import (
 const (
 	FederationAPIQueryJoinedHostServerNamesInRoomPath = "/federationapi/queryJoinedHostServerNamesInRoom"
 	FederationAPIQueryServerKeysPath                  = "/federationapi/queryServerKeys"
+	FederationAPIQueryEventAuthFromFederationPath     = "/federationapi/queryEventAuthFromFederation"
+	FederationAPIQueryStateIDsFromFederationPath      = "/federationapi/queryStateIDsFromFederation"
+	FederationAPIQueryStateFromFederationPath         = "/federationapi/queryStateFromFederation"
 
 	FederationAPIPerformDirectoryLookupRequestPath = "/federationapi/performDirectoryLookup"
 	FederationAPIPerformJoinRequestPath            = "/federationapi/performJoinRequest"
@@ -117,6 +120,45 @@ func (h *httpFederationInternalAPI) QueryJoinedHostServerNamesInRoom(
 	defer span.Finish()
 
 	apiURL := h.federationAPIURL + FederationAPIQueryJoinedHostServerNamesInRoomPath
+	return httputil.PostJSON(ctx, span, h.httpClient, apiURL, request, response)
+}
+
+// QueryEventAuthFromFederation implements FederationInternalAPI
+func (h *httpFederationInternalAPI) QueryEventAuthFromFederation(
+	ctx context.Context,
+	request *api.QueryEventAuthFromFederationRequest,
+	response *api.QueryEventAuthFromFederationResponse,
+) error {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "QueryEventAuthFromFederation")
+	defer span.Finish()
+
+	apiURL := h.federationAPIURL + FederationAPIQueryEventAuthFromFederationPath
+	return httputil.PostJSON(ctx, span, h.httpClient, apiURL, request, response)
+}
+
+// QueryStateIDsFromFederation implements FederationInternalAPI
+func (h *httpFederationInternalAPI) QueryStateIDsFromFederation(
+	ctx context.Context,
+	request *api.QueryStateIDsFromFederationRequest,
+	response *api.QueryStateIDsFromFederationResponse,
+) error {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "QueryStateIDsFromFederation")
+	defer span.Finish()
+
+	apiURL := h.federationAPIURL + FederationAPIQueryStateIDsFromFederationPath
+	return httputil.PostJSON(ctx, span, h.httpClient, apiURL, request, response)
+}
+
+// QueryEventAuthFromFederation implements FederationInternalAPI
+func (h *httpFederationInternalAPI) QueryStateFromFederation(
+	ctx context.Context,
+	request *api.QueryStateFromFederationRequest,
+	response *api.QueryStateFromFederationResponse,
+) error {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "QueryStateFromFederation")
+	defer span.Finish()
+
+	apiURL := h.federationAPIURL + FederationAPIQueryStateFromFederationPath
 	return httputil.PostJSON(ctx, span, h.httpClient, apiURL, request, response)
 }
 

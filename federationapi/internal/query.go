@@ -25,6 +25,129 @@ func (f *FederationInternalAPI) QueryJoinedHostServerNamesInRoom(
 	return
 }
 
+func (f *FederationInternalAPI) QueryEventAuthFromFederation(
+	ctx context.Context,
+	request *api.QueryEventAuthFromFederationRequest,
+	response *api.QueryEventAuthFromFederationResponse,
+) error {
+	joinedHosts, err := f.db.GetJoinedHostsForRooms(ctx, []string{request.RoomID})
+	if err != nil {
+		return fmt.Errorf("f.db.GetJoinedHostsForRooms: %w", err)
+	}
+
+	tryHost := func(serverName gomatrixserverlib.ServerName) error {
+		ctx, cancel := context.WithTimeout(ctx, time.Second*30)
+		defer cancel()
+		ires, err := f.doRequest(serverName, func() (interface{}, error) {
+			return f.federation.GetEventAuth(
+				ctx,
+				serverName,
+				request.RoomID,
+				request.EventID,
+			)
+		})
+		if err != nil {
+			return fmt.Errorf("f.doRequest: %w", err)
+		}
+		tx := ires.(gomatrixserverlib.RespEventAuth)
+		response.Events = tx.AuthEvents
+		return nil
+	}
+
+	var lasterr error
+	for _, host := range joinedHosts {
+		if lasterr = tryHost(host); lasterr != nil {
+			continue
+		}
+		break
+	}
+
+	return lasterr
+}
+
+func (f *FederationInternalAPI) QueryStateIDsFromFederation(
+	ctx context.Context,
+	request *api.QueryStateIDsFromFederationRequest,
+	response *api.QueryStateIDsFromFederationResponse,
+) error {
+	joinedHosts, err := f.db.GetJoinedHostsForRooms(ctx, []string{request.RoomID})
+	if err != nil {
+		return fmt.Errorf("f.db.GetJoinedHostsForRooms: %w", err)
+	}
+
+	tryHost := func(serverName gomatrixserverlib.ServerName) error {
+		ctx, cancel := context.WithTimeout(ctx, time.Second*30)
+		defer cancel()
+		ires, err := f.doRequest(serverName, func() (interface{}, error) {
+			return f.federation.LookupStateIDs(
+				ctx,
+				serverName,
+				request.RoomID,
+				request.EventID,
+			)
+		})
+		if err != nil {
+			return fmt.Errorf("f.doRequest: %w", err)
+		}
+		tx := ires.(gomatrixserverlib.RespStateIDs)
+		response.AuthEventIDs = tx.AuthEventIDs
+		response.StateEventIDs = tx.StateEventIDs
+		return nil
+	}
+
+	var lasterr error
+	for _, host := range joinedHosts {
+		if lasterr = tryHost(host); lasterr != nil {
+			continue
+		}
+		break
+	}
+
+	return lasterr
+}
+
+func (f *FederationInternalAPI) QueryStateFromFederation(
+	ctx context.Context,
+	request *api.QueryStateFromFederationRequest,
+	response *api.QueryStateFromFederationResponse,
+) error {
+	joinedHosts, err := f.db.GetJoinedHostsForRooms(ctx, []string{request.RoomID})
+	if err != nil {
+		return fmt.Errorf("f.db.GetJoinedHostsForRooms: %w", err)
+	}
+
+	tryHost := func(serverName gomatrixserverlib.ServerName) error {
+		ctx, cancel := context.WithTimeout(ctx, time.Second*30)
+		defer cancel()
+		ires, err := f.doRequest(serverName, func() (interface{}, error) {
+			return f.federation.LookupState(
+				ctx,
+				serverName,
+				request.RoomID,
+				request.EventID,
+				request.RoomVersion,
+			)
+		})
+		if err != nil {
+			return fmt.Errorf("f.doRequest: %w", err)
+		}
+		tx := ires.(gomatrixserverlib.RespState)
+		response.AuthEvents = tx.AuthEvents
+		response.StateEvents = tx.StateEvents
+		return nil
+	}
+
+	var lasterr error
+	for _, host := range joinedHosts {
+		if lasterr = tryHost(host); lasterr != nil {
+			continue
+		}
+		break
+	}
+
+	return lasterr
+}
+
 func (a *FederationInternalAPI) fetchServerKeysDirectly(ctx context.Context, serverName gomatrixserverlib.ServerName) (*gomatrixserverlib.ServerKeys, error) {
 	ctx, cancel := context.WithTimeout(ctx, time.Second*30)
 	defer cancel()

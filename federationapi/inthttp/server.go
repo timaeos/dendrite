@@ -28,6 +28,48 @@ func AddRoutes(intAPI api.FederationInternalAPI, internalAPIMux *mux.Router) {
 		}),
 	)
 	internalAPIMux.Handle(
+		FederationAPIQueryEventAuthFromFederationPath,
+		httputil.MakeInternalAPI("QueryEventAuthFromFederation", func(req *http.Request) util.JSONResponse {
+			var request api.QueryEventAuthFromFederationRequest
+			var response api.QueryEventAuthFromFederationResponse
+			if err := json.NewDecoder(req.Body).Decode(&request); err != nil {
+				return util.ErrorResponse(err)
+			}
+			if err := intAPI.QueryEventAuthFromFederation(req.Context(), &request, &response); err != nil {
+				return util.ErrorResponse(err)
+			}
+			return util.JSONResponse{Code: http.StatusOK, JSON: &response}
+		}),
+	)
+	internalAPIMux.Handle(
+		FederationAPIQueryStateIDsFromFederationPath,
+		httputil.MakeInternalAPI("QueryStateIDsFromFederation", func(req *http.Request) util.JSONResponse {
+			var request api.QueryStateIDsFromFederationRequest
+			var response api.QueryStateIDsFromFederationResponse
+			if err := json.NewDecoder(req.Body).Decode(&request); err != nil {
+				return util.ErrorResponse(err)
+			}
+			if err := intAPI.QueryStateIDsFromFederation(req.Context(), &request, &response); err != nil {
+				return util.ErrorResponse(err)
+			}
+			return util.JSONResponse{Code: http.StatusOK, JSON: &response}
+		}),
+	)
+	internalAPIMux.Handle(
+		FederationAPIQueryStateFromFederationPath,
+		httputil.MakeInternalAPI("QueryStateFromFederation", func(req *http.Request) util.JSONResponse {
+			var request api.QueryStateFromFederationRequest
+			var response api.QueryStateFromFederationResponse
+			if err := json.NewDecoder(req.Body).Decode(&request); err != nil {
+				return util.ErrorResponse(err)
+			}
+			if err := intAPI.QueryStateFromFederation(req.Context(), &request, &response); err != nil {
+				return util.ErrorResponse(err)
+			}
+			return util.JSONResponse{Code: http.StatusOK, JSON: &response}
+		}),
+	)
+	internalAPIMux.Handle(
 		FederationAPIPerformJoinRequestPath,
 		httputil.MakeInternalAPI("PerformJoinRequest", func(req *http.Request) util.JSONResponse {
 			var request api.PerformJoinRequest

@@ -60,6 +60,25 @@ type FederationInternalAPI interface {
 		request *QueryJoinedHostServerNamesInRoomRequest,
 		response *QueryJoinedHostServerNamesInRoomResponse,
 	) error
+
+	QueryEventAuthFromFederation(
+		ctx context.Context,
+		request *QueryEventAuthFromFederationRequest,
+		response *QueryEventAuthFromFederationResponse,
+	) error
+
+	QueryStateIDsFromFederation(
+		ctx context.Context,
+		request *QueryStateIDsFromFederationRequest,
+		response *QueryStateIDsFromFederationResponse,
+	) error
+
+	QueryStateFromFederation(
+		ctx context.Context,
+		request *QueryStateFromFederationRequest,
+		response *QueryStateFromFederationResponse,
+	) error
+
 	// Handle an instruction to make_join & send_join with a remote server.
 	PerformJoin(
 		ctx context.Context,
@@ -192,6 +211,36 @@ type QueryJoinedHostServerNamesInRoomRequest struct {
 // QueryJoinedHostServerNamesInRoomResponse is a response to QueryJoinedHostServerNames
 type QueryJoinedHostServerNamesInRoomResponse struct {
 	ServerNames []gomatrixserverlib.ServerName `json:"server_names"`
+}
+
+type QueryEventAuthFromFederationRequest struct {
+	RoomID  string `json:"room_id"`
+	EventID string `json:"event_id"`
+}
+
+type QueryEventAuthFromFederationResponse struct {
+	Events []*gomatrixserverlib.Event `json:"events"`
+}
+
+type QueryStateIDsFromFederationRequest struct {
+	RoomID  string `json:"room_id"`
+	EventID string `json:"event_id"`
+}
+
+type QueryStateIDsFromFederationResponse struct {
+	AuthEventIDs  []string `json:"auth_event_ids"`
+	StateEventIDs []string `json:"state_event_ids"`
+}
+
+type QueryStateFromFederationRequest struct {
+	RoomVersion gomatrixserverlib.RoomVersion `json:"room_version"`
+	RoomID      string                        `json:"room_id"`
+	EventID     string                        `json:"event_id"`
+}
+
+type QueryStateFromFederationResponse struct {
+	AuthEvents  []*gomatrixserverlib.Event `json:"auth_events"`
+	StateEvents []*gomatrixserverlib.Event `json:"state_events"`
 }
 
 type PerformBroadcastEDURequest struct {
