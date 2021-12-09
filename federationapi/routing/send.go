@@ -665,13 +665,15 @@ func (t *txnReq) processEvent(ctx context.Context, e *gomatrixserverlib.Event) e
 		t.hadEvent(eventID, false)
 	}
 
-	if len(stateResp.MissingAuthEventIDs) > 0 {
-		t.work = MetricsWorkMissingAuthEvents
-		logger.Infof("Event refers to %d unknown auth_events", len(stateResp.MissingAuthEventIDs))
-		if err := t.retrieveMissingAuthEvents(ctx, e, &stateResp); err != nil {
-			return fmt.Errorf("t.retrieveMissingAuthEvents: %w", err)
+	/*
+		if len(stateResp.MissingAuthEventIDs) > 0 {
+			t.work = MetricsWorkMissingAuthEvents
+			logger.Infof("Event refers to %d unknown auth_events", len(stateResp.MissingAuthEventIDs))
+			if err := t.retrieveMissingAuthEvents(ctx, e, &stateResp); err != nil {
+				return fmt.Errorf("t.retrieveMissingAuthEvents: %w", err)
+			}
 		}
-	}
+	*/
 
 	if len(stateResp.MissingPrevEventIDs) > 0 {
 		t.work = MetricsWorkMissingPrevEvents

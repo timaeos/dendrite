@@ -113,6 +113,7 @@ func (r *Inputer) processRoomEvent(
 	var rejectionErr error
 	if rejectionErr = gomatrixserverlib.Allowed(event, &authEvents); rejectionErr != nil {
 		isRejected = true
+		logrus.WithError(rejectionErr).Warnf("Event %s rejected", event.EventID())
 	}
 
 	// Accumulate the auth event NIDs.
@@ -315,8 +316,15 @@ func (r *Inputer) checkForMissingAuthEvents(
 				return fmt.Errorf("auth.AddEvent: %w", err)
 			}
 
+			// Check if the auth event should be rejected.
+			isRejected := false
+			if err := gomatrixserverlib.Allowed(event, auth); err != nil {
+				isRejected = true
+				logrus.WithError(err).Warnf("Auth event %s rejected", event.EventID())
+			}
+
 			// Finally, store the event in the database.
-			eventNID, _, _, _, _, err := r.DB.StoreEvent(ctx, event, authEventNIDs, false)
+			eventNID, _, _, _, _, err := r.DB.StoreEvent(ctx, event, authEventNIDs, isRejected)
 			if err != nil {
 				return fmt.Errorf("r.DB.StoreEvent: %w", err)
 			}
