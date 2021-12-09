@@ -58,11 +58,19 @@ func NewRoomserverAPI(
 		PerspectiveServerNames: perspectiveServerNames,
 		ACLs:                   serverACLs,
 		Producer:               producer,
+		OutputRoomEventTopic:   outputRoomEventTopic,
 		Queryer: &query.Queryer{
 			DB:         roomserverDB,
 			Cache:      caches,
 			ServerName: cfg.Matrix.ServerName,
 			ServerACLs: serverACLs,
+		},
+		Inputer: &input.Inputer{
+			DB:                   roomserverDB,
+			OutputRoomEventTopic: outputRoomEventTopic,
+			Producer:             producer,
+			ServerName:           cfg.Matrix.ServerName,
+			ACLs:                 serverACLs,
 		},
 		// perform-er structs get initialised when we have a federation sender to use
 	}

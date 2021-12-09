@@ -102,6 +102,7 @@ func (r *Inputer) processRoomEvent(
 	// First of all, check that the auth events of the event are known.
 	// If they aren't then we will ask the federation API for them.
 	if err := r.checkForMissingAuthEvents(ctx, input); err != nil {
+		logrus.WithError(err).Error("XXX: r.checkForMissingAuthEvents")
 		return "", fmt.Errorf("r.checkForMissingAuthEvents: %w", err)
 	}
 
