@@ -697,61 +697,6 @@ func (t *txnReq) processEvent(ctx context.Context, e *gomatrixserverlib.Event) e
 	)
 }
 
-func (t *txnReq) retrieveMissingAuthEvents(
-	ctx context.Context, e *gomatrixserverlib.Event, stateResp *api.QueryMissingAuthPrevEventsResponse,
-) error {
-	logger := util.GetLogger(ctx).WithField("event_id", e.EventID()).WithField("room_id", e.RoomID())
-
-	missingAuthEvents := make(map[string]struct{})
-	for _, missingAuthEventID := range stateResp.MissingAuthEventIDs {
-		missingAuthEvents[missingAuthEventID] = struct{}{}
-	}
-
-withNextEvent:
-	for missingAuthEventID := range missingAuthEvents {
-	withNextServer:
-		for _, server := range t.getServers(ctx, e.RoomID(), e) {
-			logger.Infof("Retrieving missing auth event %q from %q", missingAuthEventID, server)
-			tx, err := t.federation.GetEvent(ctx, server, missingAuthEventID)
-			if err != nil {
-				logger.WithError(err).Warnf("Failed to retrieve auth event %q", missingAuthEventID)
-				if errors.Is(err, context.DeadlineExceeded) {
-					return err
-				}
-				continue withNextServer
-			}
-			ev, err := gomatrixserverlib.NewEventFromUntrustedJSON(tx.PDUs[0], stateResp.RoomVersion)
-			if err != nil {
-				logger.WithError(err).Warnf("Failed to unmarshal auth event %q", missingAuthEventID)
-				continue withNextServer
-			}
-			if err = api.SendInputRoomEvents(
-				context.Background(),
-				t.rsAPI,
-				[]api.InputRoomEvent{
-					{
-						Kind:         api.KindOutlier,
-						Event:        ev.Headered(stateResp.RoomVersion),
-						AuthEventIDs: ev.AuthEventIDs(),
-						SendAsServer: api.DoNotSendToOtherServers,
-					},
-				},
-			); err != nil {
-				return fmt.Errorf("api.SendEvents: %w", err)
-			}
-			t.hadEvent(ev.EventID(), true) // if the roomserver didn't know about the event before, it does now
-			t.cacheAndReturn(ev.Headered(stateResp.RoomVersion))
-			delete(missingAuthEvents, missingAuthEventID)
-			continue withNextEvent
-		}
-	}
-
-	if missing := len(missingAuthEvents); missing > 0 {
-		return fmt.Errorf("event refers to %d auth_events which we failed to fetch", missing)
-	}
-	return nil
-}
-
 func checkAllowedByState(e *gomatrixserverlib.Event, stateEvents []*gomatrixserverlib.Event) error {
 	authUsingState := gomatrixserverlib.NewAuthEvents(nil)
 	for i := range stateEvents {

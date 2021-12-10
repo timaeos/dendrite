@@ -36,11 +36,11 @@ func (f *FederationInternalAPI) QueryEventAuthFromFederation(
 	}
 
 	tryHost := func(serverName gomatrixserverlib.ServerName) error {
-		ctx, cancel := context.WithTimeout(ctx, time.Second*30)
+		reqctx, cancel := context.WithTimeout(ctx, time.Second*30)
 		defer cancel()
 		ires, err := f.doRequest(serverName, func() (interface{}, error) {
 			return f.federation.GetEventAuth(
-				ctx,
+				reqctx,
 				serverName,
 				request.RoomID,
 				request.EventID,
@@ -76,11 +76,11 @@ func (f *FederationInternalAPI) QueryStateIDsFromFederation(
 	}
 
 	tryHost := func(serverName gomatrixserverlib.ServerName) error {
-		ctx, cancel := context.WithTimeout(ctx, time.Second*30)
+		reqctx, cancel := context.WithTimeout(ctx, time.Second*30)
 		defer cancel()
 		ires, err := f.doRequest(serverName, func() (interface{}, error) {
 			return f.federation.LookupStateIDs(
-				ctx,
+				reqctx,
 				serverName,
 				request.RoomID,
 				request.EventID,
@@ -117,11 +117,11 @@ func (f *FederationInternalAPI) QueryStateFromFederation(
 	}
 
 	tryHost := func(serverName gomatrixserverlib.ServerName) error {
-		ctx, cancel := context.WithTimeout(ctx, time.Second*30)
+		reqctx, cancel := context.WithTimeout(ctx, time.Second*30)
 		defer cancel()
 		ires, err := f.doRequest(serverName, func() (interface{}, error) {
 			return f.federation.LookupState(
-				ctx,
+				reqctx,
 				serverName,
 				request.RoomID,
 				request.EventID,
