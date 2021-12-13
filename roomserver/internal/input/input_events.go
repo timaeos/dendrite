@@ -125,7 +125,7 @@ func (r *Inputer) processRoomEvent(
 
 	// Then check if the prev events are known, which we need in order
 	// to calculate the state before the event.
-	if err := r.checkForMissingPrevEvents(ctx, input); err != nil {
+	if err := r.checkForMissingPrevEvents(ctx, input.Event); err != nil {
 		return "", fmt.Errorf("r.checkForMissingPrevEvents: %w", err)
 	}
 
@@ -299,6 +299,14 @@ func (r *Inputer) checkForMissingAuthEvents(
 				continue
 			}
 
+			// Check the signatures of the event.
+			// TODO: It really makes sense for the federation API to be doing this,
+			// because then it can attempt another server if one serves up an event
+			// with an invalid signature. For now this will do.
+			if err := event.VerifyEventSignatures(ctx, r.FSAPI.KeyRing()); err != nil {
+				return fmt.Errorf("event.VerifyEventSignatures: %w", err)
+			}
+
 			// Otherwise, we need to store, and that means we need to know the
 			// auth event NIDs. Let's see if we can find those.
 			authEventNIDs := make([]types.EventNID, 0, len(event.AuthEventIDs()))
@@ -342,8 +350,58 @@ func (r *Inputer) checkForMissingAuthEvents(
 
 func (r *Inputer) checkForMissingPrevEvents(
 	ctx context.Context,
-	input *api.InputRoomEvent,
+	event *gomatrixserverlib.HeaderedEvent,
 ) error {
+	// First of all, determine if we know of the prev events.
+	prevEventIDs := event.PrevEventIDs()
+	prevEventNIDs, err := r.DB.EventNIDs(ctx, prevEventIDs)
+	if err != nil {
+		return fmt.Errorf("r.DB.EventNIDs: %w", err)
+	}
+	missingPrevEvents := make([]string, 0, len(prevEventIDs))
+	for _, eventID := range prevEventIDs {
+		if _, ok := prevEventNIDs[eventID]; !ok {
+			missingPrevEvents = append(prevEventIDs, eventID)
+		}
+	}
+
+	// If there are no missing prev events then we're all happy and there
+	// is nothing more to do here.
+	if len(missingPrevEvents) == 0 {
+		return nil
+	}
+
+	return fmt.Errorf("there are %d missing prev events", len(missingPrevEvents))
+
+	req := &fedapi.QueryEventsFromFederationRequest{
+		RoomID:   event.RoomID(),
+		EventIDs: missingPrevEvents,
+	}
+	res := &fedapi.QueryEventsFromFederationResponse{}
+	if err := r.FSAPI.QueryEventsFromFederation(ctx, req, res); err != nil {
+		return fmt.Errorf("r.FSAPI.QueryEventsFromFederation: %w", err)
+	}
+
+	for _, js := range res.Events {
+		ev, err := gomatrixserverlib.NewEventFromUntrustedJSON(js, event.RoomVersion)
+		if err != nil {
+			return fmt.Errorf("gomatrixserverlib.NewEventFromUntrustedJSON: %w", err)
+		}
+
+		if err := ev.VerifyEventSignatures(ctx, r.FSAPI.KeyRing()); err != nil {
+			return fmt.Errorf("event.VerifyEventSignatures: %w", err)
+		}
+
+		req := &fedapi.QueryStateIDsFromFederationRequest{
+			RoomID:  ev.RoomID(),
+			EventID: ev.EventID(),
+		}
+		res := &fedapi.QueryStateIDsFromFederationResponse{}
+		if err := r.FSAPI.QueryStateIDsFromFederation(ctx, req, res); err != nil {
+			return fmt.Errorf("r.FSAPI.QueryStateIDsFromFederation: %w", err)
+		}
+
+	}
 
 	return nil
 }

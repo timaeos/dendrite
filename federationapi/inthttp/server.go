@@ -29,6 +29,20 @@ func AddRoutes(intAPI api.FederationInternalAPI, internalAPIMux *mux.Router) {
 	)
 	internalAPIMux.Handle(
 		FederationAPIQueryEventAuthFromFederationPath,
+		httputil.MakeInternalAPI("QueryEventsFromFederation", func(req *http.Request) util.JSONResponse {
+			var request api.QueryEventsFromFederationRequest
+			var response api.QueryEventsFromFederationResponse
+			if err := json.NewDecoder(req.Body).Decode(&request); err != nil {
+				return util.ErrorResponse(err)
+			}
+			if err := intAPI.QueryEventsFromFederation(req.Context(), &request, &response); err != nil {
+				return util.ErrorResponse(err)
+			}
+			return util.JSONResponse{Code: http.StatusOK, JSON: &response}
+		}),
+	)
+	internalAPIMux.Handle(
+		FederationAPIQueryEventAuthFromFederationPath,
 		httputil.MakeInternalAPI("QueryEventAuthFromFederation", func(req *http.Request) util.JSONResponse {
 			var request api.QueryEventAuthFromFederationRequest
 			var response api.QueryEventAuthFromFederationResponse

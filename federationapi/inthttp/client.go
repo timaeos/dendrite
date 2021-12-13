@@ -17,6 +17,7 @@ import (
 const (
 	FederationAPIQueryJoinedHostServerNamesInRoomPath = "/federationapi/queryJoinedHostServerNamesInRoom"
 	FederationAPIQueryServerKeysPath                  = "/federationapi/queryServerKeys"
+	FederationAPIQueryEventsFromFederationPath        = "/federationapi/queryEventsFromFederation"
 	FederationAPIQueryEventAuthFromFederationPath     = "/federationapi/queryEventAuthFromFederation"
 	FederationAPIQueryStateIDsFromFederationPath      = "/federationapi/queryStateIDsFromFederation"
 	FederationAPIQueryStateFromFederationPath         = "/federationapi/queryStateFromFederation"
@@ -120,6 +121,19 @@ func (h *httpFederationInternalAPI) QueryJoinedHostServerNamesInRoom(
 	defer span.Finish()
 
 	apiURL := h.federationAPIURL + FederationAPIQueryJoinedHostServerNamesInRoomPath
+	return httputil.PostJSON(ctx, span, h.httpClient, apiURL, request, response)
+}
+
+// QueryEventAuthFromFederation implements FederationInternalAPI
+func (h *httpFederationInternalAPI) QueryEventsFromFederation(
+	ctx context.Context,
+	request *api.QueryEventsFromFederationRequest,
+	response *api.QueryEventsFromFederationResponse,
+) error {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "QueryEventsFromFederation")
+	defer span.Finish()
+
+	apiURL := h.federationAPIURL + FederationAPIQueryEventsFromFederationPath
 	return httputil.PostJSON(ctx, span, h.httpClient, apiURL, request, response)
 }
 

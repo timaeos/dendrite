@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -59,6 +60,12 @@ type FederationInternalAPI interface {
 		ctx context.Context,
 		request *QueryJoinedHostServerNamesInRoomRequest,
 		response *QueryJoinedHostServerNamesInRoomResponse,
+	) error
+
+	QueryEventsFromFederation(
+		ctx context.Context,
+		request *QueryEventsFromFederationRequest,
+		response *QueryEventsFromFederationResponse,
 	) error
 
 	QueryEventAuthFromFederation(
@@ -211,6 +218,15 @@ type QueryJoinedHostServerNamesInRoomRequest struct {
 // QueryJoinedHostServerNamesInRoomResponse is a response to QueryJoinedHostServerNames
 type QueryJoinedHostServerNamesInRoomResponse struct {
 	ServerNames []gomatrixserverlib.ServerName `json:"server_names"`
+}
+
+type QueryEventsFromFederationRequest struct {
+	RoomID   string   `json:"room_id"`
+	EventIDs []string `json:"event_ids"`
+}
+
+type QueryEventsFromFederationResponse struct {
+	Events []json.RawMessage `json:"events"`
 }
 
 type QueryEventAuthFromFederationRequest struct {
