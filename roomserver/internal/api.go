@@ -90,8 +90,10 @@ func (r *RoomserverInternalAPI) SetFederationAPI(fsAPI fsAPI.FederationInternalA
 
 	r.Inputer = &input.Inputer{
 		DB:                   r.DB,
+		InputRoomEventTopic:  r.InputRoomEventTopic,
 		OutputRoomEventTopic: r.OutputRoomEventTopic,
 		ServerName:           r.Cfg.Matrix.ServerName,
+		JetStream:            r.JetStream,
 		ACLs:                 r.ACLs,
 		FSAPI:                r.fsAPI,
 	}
