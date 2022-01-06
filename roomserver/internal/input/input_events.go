@@ -63,7 +63,7 @@ var processRoomEventDuration = prometheus.NewHistogramVec(
 func (r *Inputer) processRoomEvent(
 	ctx context.Context,
 	input *api.InputRoomEvent,
-) (string, error) {
+) (err error) {
 	// Measure how long it takes to process this event.
 	started := time.Now()
 	defer func() {
@@ -89,11 +89,11 @@ func (r *Inputer) processRoomEvent(
 				case gomatrixserverlib.EventIDFormatV1:
 					if bytes.Equal(event.EventReference().EventSHA256, evs[0].EventReference().EventSHA256) {
 						util.GetLogger(ctx).WithField("event_id", event.EventID()).Infof("Already processed event; ignoring")
-						return event.EventID(), nil
+						return nil
 					}
 				default:
 					util.GetLogger(ctx).WithField("event_id", event.EventID()).Infof("Already processed event; ignoring")
-					return event.EventID(), nil
+					return nil
 				}
 			}
 		}
@@ -104,8 +104,8 @@ func (r *Inputer) processRoomEvent(
 	isRejected := false
 	authEvents := gomatrixserverlib.NewAuthEvents(nil)
 	knownAuthEvents := map[string]types.Event{}
-	if err := r.checkForMissingAuthEvents(ctx, input.Event, &authEvents, knownAuthEvents); err != nil {
-		return "", fmt.Errorf("r.checkForMissingAuthEvents: %w", err)
+	if err = r.checkForMissingAuthEvents(ctx, input.Event, &authEvents, knownAuthEvents); err != nil {
+		return fmt.Errorf("r.checkForMissingAuthEvents: %w", err)
 	}
 
 	// Check if the event is allowed by its auth events. If it isn't then
@@ -125,15 +125,14 @@ func (r *Inputer) processRoomEvent(
 
 	// Then check if the prev events are known, which we need in order
 	// to calculate the state before the event.
-	if err := r.checkForMissingPrevEvents(ctx, input.Event); err != nil {
-		return "", fmt.Errorf("r.checkForMissingPrevEvents: %w", err)
+	if err = r.checkForMissingPrevEvents(ctx, input.Event); err != nil {
+		return fmt.Errorf("r.checkForMissingPrevEvents: %w", err)
 	}
 
 	var softfail bool
 	if input.Kind == api.KindNew {
 		// Check that the event passes authentication checks based on the
 		// current room state.
-		var err error
 		softfail, err = helpers.CheckForSoftFail(ctx, r.DB, headered, input.StateEventIDs)
 		if err != nil {
 			logrus.WithFields(logrus.Fields{
@@ -147,14 +146,14 @@ func (r *Inputer) processRoomEvent(
 	// Store the event.
 	_, _, stateAtEvent, redactionEvent, redactedEventID, err := r.DB.StoreEvent(ctx, event, authEventNIDs, isRejected)
 	if err != nil {
-		return "", fmt.Errorf("r.DB.StoreEvent: %w", err)
+		return fmt.Errorf("r.DB.StoreEvent: %w", err)
 	}
 
 	// if storing this event results in it being redacted then do so.
 	if !isRejected && redactedEventID == event.EventID() {
 		r, rerr := eventutil.RedactEvent(redactionEvent, event)
 		if rerr != nil {
-			return "", fmt.Errorf("eventutil.RedactEvent: %w", rerr)
+			return fmt.Errorf("eventutil.RedactEvent: %w", rerr)
 		}
 		event = r
 	}
@@ -169,15 +168,15 @@ func (r *Inputer) processRoomEvent(
 			"room":     event.RoomID(),
 			"sender":   event.Sender(),
 		}).Debug("Stored outlier")
-		return event.EventID(), nil
+		return nil
 	}
 
 	roomInfo, err := r.DB.RoomInfo(ctx, event.RoomID())
 	if err != nil {
-		return "", fmt.Errorf("r.DB.RoomInfo: %w", err)
+		return fmt.Errorf("r.DB.RoomInfo: %w", err)
 	}
 	if roomInfo == nil {
-		return "", fmt.Errorf("r.DB.RoomInfo missing for room %s", event.RoomID())
+		return fmt.Errorf("r.DB.RoomInfo missing for room %s", event.RoomID())
 	}
 
 	if stateAtEvent.BeforeStateSnapshotNID == 0 {
@@ -185,7 +184,7 @@ func (r *Inputer) processRoomEvent(
 		// Lets calculate one.
 		err = r.calculateAndSetState(ctx, input, *roomInfo, &stateAtEvent, event, isRejected)
 		if err != nil && input.Kind != api.KindOld {
-			return "", fmt.Errorf("r.calculateAndSetState: %w", err)
+			return fmt.Errorf("r.calculateAndSetState: %w", err)
 		}
 	}
 
@@ -198,7 +197,7 @@ func (r *Inputer) processRoomEvent(
 			"soft_fail": softfail,
 			"sender":    event.Sender(),
 		}).Debug("Stored rejected event")
-		return event.EventID(), rejectionErr
+		return rejectionErr
 	}
 
 	switch input.Kind {
@@ -212,7 +211,7 @@ func (r *Inputer) processRoomEvent(
 			input.TransactionID, // transaction ID
 			input.HasState,      // rewrites state?
 		); err != nil {
-			return "", fmt.Errorf("r.updateLatestEvents: %w", err)
+			return fmt.Errorf("r.updateLatestEvents: %w", err)
 		}
 	case api.KindOld:
 		err = r.WriteOutputEvents(event.RoomID(), []api.OutputEvent{
@@ -224,7 +223,7 @@ func (r *Inputer) processRoomEvent(
 			},
 		})
 		if err != nil {
-			return "", fmt.Errorf("r.WriteOutputEvents (old): %w", err)
+			return fmt.Errorf("r.WriteOutputEvents (old): %w", err)
 		}
 	}
 
@@ -243,12 +242,12 @@ func (r *Inputer) processRoomEvent(
 			},
 		})
 		if err != nil {
-			return "", fmt.Errorf("r.WriteOutputEvents (redactions): %w", err)
+			return fmt.Errorf("r.WriteOutputEvents (redactions): %w", err)
 		}
 	}
 
 	// Update the extremities of the event graph for the room
-	return event.EventID(), nil
+	return nil
 }
 
 func (r *Inputer) checkForMissingAuthEvents(

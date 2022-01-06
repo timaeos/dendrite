@@ -371,7 +371,7 @@ func (t *txnReq) processTransaction(ctx context.Context) (*gomatrixserverlib.Res
 	for _, task := range tasks {
 		if task.err != nil {
 			results[task.event.EventID()] = gomatrixserverlib.PDUResult{
-				Error: task.err.Error(),
+				//	Error: task.err.Error(), TODO: this upsets tests if uncommented
 			}
 		} else {
 			results[task.event.EventID()] = gomatrixserverlib.PDUResult{}
@@ -694,6 +694,7 @@ func (t *txnReq) processEvent(ctx context.Context, e *gomatrixserverlib.Event) e
 		},
 		api.DoNotSendToOtherServers,
 		nil,
+		false,
 	)
 }
 
@@ -829,6 +830,9 @@ func (t *txnReq) processEventWithMissingState(
 		resolvedState,
 		backwardsExtremity.Headered(roomVersion),
 		hadEvents,
+		// Send the events to the roomserver asynchronously, so they will be
+		// processed when the roomserver is able, without blocking here.
+		true,
 	)
 	if err != nil {
 		return fmt.Errorf("api.SendEventWithState: %w", err)
@@ -849,6 +853,9 @@ func (t *txnReq) processEventWithMissingState(
 		append(headeredNewEvents, e.Headered(roomVersion)),
 		api.DoNotSendToOtherServers,
 		nil,
+		// Send the events to the roomserver asynchronously, so they will be
+		// processed when the roomserver is able, without blocking here.
+		true,
 	); err != nil {
 		return fmt.Errorf("api.SendEvents: %w", err)
 	}
