@@ -91,11 +91,11 @@ func (r *Inputer) Start() error {
 				_ = msg.Term()
 				return
 			}
-			defer eventIDsQueued.Delete(eventID)
 
 			roomserverInputBackpressure.With(prometheus.Labels{"room_id": roomID}).Inc()
 			worker := r.workerForRoom(roomID)
 			worker.Act(nil, func() {
+				defer eventIDsQueued.Delete(eventID)
 				ctx, cancel := context.WithTimeout(context.Background(), MaximumProcessingTime)
 				defer cancel()
 				defer roomserverInputBackpressure.With(prometheus.Labels{"room_id": roomID}).Dec()
