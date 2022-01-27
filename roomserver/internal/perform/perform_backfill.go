@@ -145,17 +145,19 @@ func (r *Backfiller) backfillViaFederation(ctx context.Context, req *api.Perform
 			entries, err = r.DB.StateEntriesForEventIDs(ctx, stateIDs)
 			if err != nil {
 				logrus.WithError(err).WithField("event_id", ev.EventID()).Error("backfillViaFederation: failed to get state entries for event")
-				return err
+				//return err
 			}
 		}
 
-		var beforeStateSnapshotNID types.StateSnapshotNID
-		if beforeStateSnapshotNID, err = r.DB.AddState(ctx, roomNID, nil, entries); err != nil {
-			logrus.WithError(err).WithField("event_id", ev.EventID()).Error("backfillViaFederation: failed to persist state entries to get snapshot nid")
-			return err
-		}
-		if err = r.DB.SetState(ctx, ev.EventNID, beforeStateSnapshotNID); err != nil {
-			logrus.WithError(err).WithField("event_id", ev.EventID()).Error("backfillViaFederation: failed to persist snapshot nid")
+		if len(entries) > 0 {
+			var beforeStateSnapshotNID types.StateSnapshotNID
+			if beforeStateSnapshotNID, err = r.DB.AddState(ctx, roomNID, nil, entries); err != nil {
+				logrus.WithError(err).WithField("event_id", ev.EventID()).Error("backfillViaFederation: failed to persist state entries to get snapshot nid")
+				return err
+			}
+			if err = r.DB.SetState(ctx, ev.EventNID, beforeStateSnapshotNID); err != nil {
+				logrus.WithError(err).WithField("event_id", ev.EventID()).Error("backfillViaFederation: failed to persist snapshot nid")
+			}
 		}
 	}
 
