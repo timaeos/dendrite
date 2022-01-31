@@ -99,7 +99,20 @@ func (r *Leaver) performLeaveRoomByID(
 		return nil, err
 	}
 	if !latestRes.RoomExists {
-		return nil, fmt.Errorf("room %q does not exist", req.RoomID)
+		// This really shouldn't happen as it means that the room stub in
+		// the roomserver was nuked, but it's also a bad idea to torture
+		// users with invites that they can't reject, so produce the output
+		// event anyway.
+		return []api.OutputEvent{
+			{
+				Type: api.OutputTypeRetireInviteEvent,
+				RetireInviteEvent: &api.OutputRetireInviteEvent{
+					EventID:      eventID,
+					Membership:   "leave",
+					TargetUserID: req.UserID,
+				},
+			},
+		}, nil
 	}
 
 	// Now let's see if the user is in the room.
