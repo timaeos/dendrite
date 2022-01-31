@@ -118,8 +118,20 @@ func (r *Inputer) processRoomEvent(
 		}
 	}
 
+	// If we need to fetch any missing auth or prev events then we will
+	// need to know a list of servers to ask. At the minimum, we should
+	// ask the server that gave us the event (the "input origin") or the
+	// server that created the event (the "event origin").
+	var servers []gomatrixserverlib.ServerName
+	if input.Origin != "" {
+		servers = append(servers, input.Origin)
+	}
+	if origin := event.Origin(); origin != input.Origin {
+		servers = append(servers, origin)
+	}
+
+	// Check if any of the prev or auth events are missing.
 	missingRes := &api.QueryMissingAuthPrevEventsResponse{}
-	serverRes := &fedapi.QueryJoinedHostServerNamesInRoomResponse{}
 	if event.Type() != gomatrixserverlib.MRoomCreate || !event.StateKeyEquals("") {
 		missingReq := &api.QueryMissingAuthPrevEventsRequest{
 			RoomID:       event.RoomID(),
@@ -133,33 +145,32 @@ func (r *Inputer) processRoomEvent(
 	missingAuth := len(missingRes.MissingAuthEventIDs) > 0
 	missingPrev := !input.HasState && len(missingRes.MissingPrevEventIDs) > 0
 
+	// If we have missing auth or prev events then we will want to expand
+	// the net a bit by including servers that are resident in the room.
+	// We only do this if something is obviously missing to save CPU cycles.
 	if missingAuth || missingPrev {
 		serverReq := &fedapi.QueryJoinedHostServerNamesInRoomRequest{
 			RoomID:      event.RoomID(),
 			ExcludeSelf: true,
 		}
+		serverRes := &fedapi.QueryJoinedHostServerNamesInRoomResponse{}
 		if err = r.FSAPI.QueryJoinedHostServerNamesInRoom(ctx, serverReq, serverRes); err != nil {
 			return fmt.Errorf("r.FSAPI.QueryJoinedHostServerNamesInRoom: %w", err)
 		}
 		// Sort all of the servers into a map so that we can randomise
-		// their order. Then make sure that the input origin and the
-		// event origin are first on the list.
-		servers := map[gomatrixserverlib.ServerName]struct{}{}
+		// their order. Then we'll delete any servers from the map that
+		// are already in the list (e.g. the origins) and then add the
+		// rest in random order.
+		servermap := map[gomatrixserverlib.ServerName]struct{}{}
 		for _, server := range serverRes.ServerNames {
-			servers[server] = struct{}{}
+			servermap[server] = struct{}{}
 		}
-		serverRes.ServerNames = serverRes.ServerNames[:0]
-		if input.Origin != "" {
-			serverRes.ServerNames = append(serverRes.ServerNames, input.Origin)
-			delete(servers, input.Origin)
+		for _, server := range servers {
+			delete(servermap, server)
 		}
-		if origin := event.Origin(); origin != input.Origin {
-			serverRes.ServerNames = append(serverRes.ServerNames, origin)
-			delete(servers, origin)
-		}
-		for server := range servers {
+		for server := range servermap {
 			serverRes.ServerNames = append(serverRes.ServerNames, server)
-			delete(servers, server)
+			delete(servermap, server)
 		}
 	}
 
@@ -168,7 +179,7 @@ func (r *Inputer) processRoomEvent(
 	isRejected := false
 	authEvents := gomatrixserverlib.NewAuthEvents(nil)
 	knownEvents := map[string]*types.Event{}
-	if err = r.fetchAuthEvents(ctx, logger, headered, &authEvents, knownEvents, serverRes.ServerNames); err != nil {
+	if err = r.fetchAuthEvents(ctx, logger, headered, &authEvents, knownEvents, servers); err != nil {
 		return fmt.Errorf("r.fetchAuthEvents: %w", err)
 	}
 
@@ -214,7 +225,7 @@ func (r *Inputer) processRoomEvent(
 		// Don't do this for KindOld events, otherwise old events that we fetch
 		// to satisfy missing prev events/state will end up recursively calling
 		// processRoomEvent.
-		if len(serverRes.ServerNames) > 0 {
+		if len(servers) > 0 {
 			missingState := missingStateReq{
 				origin:     input.Origin,
 				inputer:    r,
@@ -223,7 +234,7 @@ func (r *Inputer) processRoomEvent(
 				federation: r.FSAPI,
 				keys:       r.KeyRing,
 				roomsMu:    internal.NewMutexByRoom(),
-				servers:    serverRes.ServerNames,
+				servers:    servers,
 				hadEvents:  map[string]bool{},
 				haveEvents: map[string]*gomatrixserverlib.HeaderedEvent{},
 			}
