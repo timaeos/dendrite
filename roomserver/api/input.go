@@ -42,6 +42,19 @@ const (
 	KindOld
 )
 
+func (k Kind) String() string {
+	switch k {
+	case KindOutlier:
+		return "outlier"
+	case KindNew:
+		return "new"
+	case KindOld:
+		return "old"
+	default:
+		return "unknown"
+	}
+}
+
 // DoNotSendToOtherServers tells us not to send the event to other matrix
 // servers.
 const DoNotSendToOtherServers = ""
