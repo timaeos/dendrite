@@ -245,7 +245,8 @@ func (r *FederationInternalAPI) performJoinUsingServer(
 		// server now thinks we're a part of the room. Send the newly
 		// returned state to the roomserver to update our local view.
 		if err = roomserverAPI.SendEventWithState(
-			ctx, r.rsAPI,
+			context.Background(),
+			r.rsAPI,
 			roomserverAPI.KindNew,
 			respState,
 			event.Headered(respMakeJoin.RoomVersion),
