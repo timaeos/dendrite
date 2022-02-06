@@ -171,6 +171,9 @@ func (r *Inputer) processRoomEvent(
 			serverRes.ServerNames = append(serverRes.ServerNames, server)
 			delete(servers, server)
 		}
+		if len(serverRes.ServerNames) > 10 {
+			serverRes.ServerNames = serverRes.ServerNames[:10]
+		}
 	}
 
 	// First of all, check that the auth events of the event are known.
