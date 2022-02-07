@@ -296,36 +296,23 @@ func (r *Inputer) processRoomEvent(
 		logger.WithError(rejectionErr).WithFields(logrus.Fields{
 			"soft_fail":    softfail,
 			"missing_prev": missingPrev,
-		}).Warn("Stored rejected event")
+		}).Warn("Event was rejected")
 		return commitTransaction, rejectionErr
 	}
 
-	switch input.Kind {
-	case api.KindNew:
-		if err = r.updateLatestEvents(
-			ctx,                 // context
-			updater,             // room updater
-			roomInfo,            // room info for the room being updated
-			stateAtEvent,        // state at event (below)
-			event,               // event
-			input.SendAsServer,  // send as server
-			input.TransactionID, // transaction ID
-			input.HasState,      // rewrites state?
-		); err != nil {
-			return rollbackTransaction, fmt.Errorf("r.updateLatestEvents: %w", err)
-		}
-	case api.KindOld:
-		err = r.WriteOutputEvents(event.RoomID(), []api.OutputEvent{
-			{
-				Type: api.OutputTypeOldRoomEvent,
-				OldRoomEvent: &api.OutputOldRoomEvent{
-					Event: headered,
-				},
-			},
-		})
-		if err != nil {
-			return rollbackTransaction, fmt.Errorf("r.WriteOutputEvents (old): %w", err)
-		}
+	if err = r.updateLatestEvents(
+		ctx,                    // context
+		updater,                // room updater
+		roomInfo,               // room info for the room being updated
+		stateAtEvent,           // state at event (below)
+		event,                  // event
+		input.Kind,             // kind of event
+		isRejected || softfail, // possible forward extremity?
+		input.SendAsServer,     // send as server
+		input.TransactionID,    // transaction ID
+		input.HasState,         // rewrites state?
+	); err != nil {
+		return rollbackTransaction, fmt.Errorf("r.updateLatestEvents: %w", err)
 	}
 
 	// processing this event resulted in an event (which may not be the one we're processing)

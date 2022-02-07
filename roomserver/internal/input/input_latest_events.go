@@ -51,6 +51,8 @@ func (r *Inputer) updateLatestEvents(
 	roomInfo *types.RoomInfo,
 	stateAtEvent types.StateAtEvent,
 	event *gomatrixserverlib.Event,
+	kind api.Kind,
+	isRejected bool,
 	sendAsServer string,
 	transactionID *api.TransactionID,
 	rewritesState bool,
@@ -62,6 +64,8 @@ func (r *Inputer) updateLatestEvents(
 		roomInfo:      roomInfo,
 		stateAtEvent:  stateAtEvent,
 		event:         event,
+		kind:          kind,
+		isRejected:    isRejected,
 		sendAsServer:  sendAsServer,
 		transactionID: transactionID,
 		rewritesState: rewritesState,
@@ -85,6 +89,8 @@ type latestEventsUpdater struct {
 	roomInfo      *types.RoomInfo
 	stateAtEvent  types.StateAtEvent
 	event         *gomatrixserverlib.Event
+	kind          api.Kind
+	isRejected    bool
 	transactionID *api.TransactionID
 	rewritesState bool
 	// Which server to send this event as.
@@ -124,7 +130,8 @@ func (u *latestEventsUpdater) doUpdateLatestEvents() error {
 
 	// If the event has already been written to the output log then we
 	// don't need to do anything, as we've handled it already.
-	if hasBeenSent, err := u.updater.HasEventBeenSent(u.stateAtEvent.EventNID); err != nil {
+	hasBeenSent, err := u.updater.HasEventBeenSent(u.stateAtEvent.EventNID)
+	if err != nil {
 		return fmt.Errorf("u.updater.HasEventBeenSent: %w", err)
 	} else if hasBeenSent {
 		return nil
@@ -132,21 +139,24 @@ func (u *latestEventsUpdater) doUpdateLatestEvents() error {
 
 	// Work out what the latest events are. This will include the new
 	// event if it is not already referenced.
-	extremitiesChanged, err := u.calculateLatest(
-		u.oldLatest, u.event,
-		types.StateAtEventAndReference{
-			EventReference: u.event.EventReference(),
-			StateAtEvent:   u.stateAtEvent,
-		},
-	)
-	if err != nil {
-		return fmt.Errorf("u.calculateLatest: %w", err)
+	var extremitiesChanged bool
+	if u.kind == api.KindNew && !u.isRejected {
+		extremitiesChanged, err = u.calculateLatest(
+			u.oldLatest, u.event,
+			types.StateAtEventAndReference{
+				EventReference: u.event.EventReference(),
+				StateAtEvent:   u.stateAtEvent,
+			},
+		)
+		if err != nil {
+			return fmt.Errorf("u.calculateLatest: %w", err)
+		}
 	}
 
 	// Now that we know what the latest events are, it's time to get the
 	// latest state.
 	var updates []api.OutputEvent
-	if extremitiesChanged || u.rewritesState {
+	if u.kind == api.KindNew && (extremitiesChanged || u.rewritesState) {
 		if err = u.latestState(); err != nil {
 			return fmt.Errorf("u.latestState: %w", err)
 		}
@@ -287,6 +297,12 @@ func (u *latestEventsUpdater) calculateLatest(
 		existingRefs[old.EventID] = &oldLatest[i]
 	}
 
+	// If the "new" event is rejected then we shouldn't try to calculate
+	// forward extremities.
+	if u.isRejected {
+		return false, nil
+	}
+
 	// If the "new" event is already a forward extremity then stop, as
 	// nothing changes.
 	if _, ok := existingRefs[newEvent.EventID()]; ok {
@@ -340,56 +356,75 @@ func (u *latestEventsUpdater) calculateLatest(
 		newLatest = append(newLatest, *old)
 	}
 
+	// I don't suppose this should happen but let's make extra sure.
+	if len(newLatest) == 0 {
+		return false, fmt.Errorf("must be at least one forward extremity")
+	}
+
 	u.latest = newLatest
 	return true, nil
 }
 
 func (u *latestEventsUpdater) makeOutputNewRoomEvent() (*api.OutputEvent, error) {
-	latestEventIDs := make([]string, len(u.latest))
-	for i := range u.latest {
-		latestEventIDs[i] = u.latest[i].EventID
-	}
-
-	ore := api.OutputNewRoomEvent{
-		Event:           u.event.Headered(u.roomInfo.RoomVersion),
-		RewritesState:   u.rewritesState,
-		LastSentEventID: u.lastEventIDSent,
-		LatestEventIDs:  latestEventIDs,
-		TransactionID:   u.transactionID,
-	}
-
-	eventIDMap, err := u.stateEventMap()
-	if err != nil {
-		return nil, err
-	}
-	for _, entry := range u.added {
-		ore.AddsStateEventIDs = append(ore.AddsStateEventIDs, eventIDMap[entry.EventNID])
-	}
-	for _, entry := range u.removed {
-		ore.RemovesStateEventIDs = append(ore.RemovesStateEventIDs, eventIDMap[entry.EventNID])
-	}
-	for _, entry := range u.stateBeforeEventRemoves {
-		ore.StateBeforeRemovesEventIDs = append(ore.StateBeforeRemovesEventIDs, eventIDMap[entry.EventNID])
-	}
-	for _, entry := range u.stateBeforeEventAdds {
-		ore.StateBeforeAddsEventIDs = append(ore.StateBeforeAddsEventIDs, eventIDMap[entry.EventNID])
-	}
-
-	ore.SendAsServer = u.sendAsServer
-
-	// include extra state events if they were added as nearly every downstream component will care about it
-	// and we'd rather not have them all hit QueryEventsByID at the same time!
-	if len(ore.AddsStateEventIDs) > 0 {
-		var err error
-		if ore.AddStateEvents, err = u.extraEventsForIDs(u.roomInfo.RoomVersion, ore.AddsStateEventIDs); err != nil {
-			return nil, fmt.Errorf("failed to load add_state_events from db: %w", err)
+	switch u.kind {
+	case api.KindNew:
+		latestEventIDs := make([]string, len(u.latest))
+		for i := range u.latest {
+			latestEventIDs[i] = u.latest[i].EventID
 		}
-	}
 
-	return &api.OutputEvent{
-		Type:         api.OutputTypeNewRoomEvent,
-		NewRoomEvent: &ore,
-	}, nil
+		ore := api.OutputNewRoomEvent{
+			Event:           u.event.Headered(u.roomInfo.RoomVersion),
+			RewritesState:   u.rewritesState,
+			LastSentEventID: u.lastEventIDSent,
+			LatestEventIDs:  latestEventIDs,
+			TransactionID:   u.transactionID,
+		}
+
+		eventIDMap, err := u.stateEventMap()
+		if err != nil {
+			return nil, err
+		}
+		for _, entry := range u.added {
+			ore.AddsStateEventIDs = append(ore.AddsStateEventIDs, eventIDMap[entry.EventNID])
+		}
+		for _, entry := range u.removed {
+			ore.RemovesStateEventIDs = append(ore.RemovesStateEventIDs, eventIDMap[entry.EventNID])
+		}
+		for _, entry := range u.stateBeforeEventRemoves {
+			ore.StateBeforeRemovesEventIDs = append(ore.StateBeforeRemovesEventIDs, eventIDMap[entry.EventNID])
+		}
+		for _, entry := range u.stateBeforeEventAdds {
+			ore.StateBeforeAddsEventIDs = append(ore.StateBeforeAddsEventIDs, eventIDMap[entry.EventNID])
+		}
+
+		ore.SendAsServer = u.sendAsServer
+
+		// include extra state events if they were added as nearly every downstream component will care about it
+		// and we'd rather not have them all hit QueryEventsByID at the same time!
+		if len(ore.AddsStateEventIDs) > 0 {
+			var err error
+			if ore.AddStateEvents, err = u.extraEventsForIDs(u.roomInfo.RoomVersion, ore.AddsStateEventIDs); err != nil {
+				return nil, fmt.Errorf("failed to load add_state_events from db: %w", err)
+			}
+		}
+
+		return &api.OutputEvent{
+			Type:         api.OutputTypeNewRoomEvent,
+			NewRoomEvent: &ore,
+		}, nil
+
+	case api.KindOld:
+		return &api.OutputEvent{
+			Type: api.OutputTypeOldRoomEvent,
+			OldRoomEvent: &api.OutputOldRoomEvent{
+				Event: u.event.Headered(u.roomInfo.RoomVersion),
+			},
+		}, nil
+
+	default:
+		panic("shouldn't be generating output events for other kinds")
+	}
 }
 
 // extraEventsForIDs returns the full events for the event IDs given, but does not include the current event being
