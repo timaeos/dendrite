@@ -283,6 +283,7 @@ func (r *Joiner) performJoinRoomByID(
 						SendAsServer: string(r.Cfg.Matrix.ServerName),
 					},
 				},
+				Asynchronous: true,
 			}
 			inputRes := rsAPI.InputRoomEventsResponse{}
 			r.Inputer.InputRoomEvents(ctx, &inputReq, &inputRes)

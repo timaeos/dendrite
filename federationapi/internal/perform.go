@@ -244,7 +244,7 @@ func (r *FederationInternalAPI) performJoinUsingServer(
 		event.Headered(respMakeJoin.RoomVersion),
 		serverName,
 		nil,
-		false,
+		true,
 	); err != nil {
 		return fmt.Errorf("roomserverAPI.SendEventWithState: %w", err)
 	}
