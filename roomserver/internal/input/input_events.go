@@ -194,20 +194,27 @@ func (r *Inputer) processRoomEvent(
 	authEventIDs := event.AuthEventIDs()
 	authEventNIDs := make([]types.EventNID, 0, len(authEventIDs))
 	for _, authEventID := range authEventIDs {
-		if _, ok := knownEvents[authEventID]; !ok && isRejected {
-			if event.StateKey() != nil {
-				return commitTransaction, fmt.Errorf(
-					"missing auth event %s for state event %s (type %q, state key %q)",
-					authEventID, event.EventID(), event.Type(), *event.StateKey(),
-				)
-			} else {
-				return commitTransaction, fmt.Errorf(
-					"missing auth event %s for timeline event %s (type %q)",
-					authEventID, event.EventID(), event.Type(),
-				)
+		if _, ok := knownEvents[authEventID]; !ok {
+			// Unknown auth events only really matter if the event actually failed
+			// auth. If it passed auth then we can assume that everything that was
+			// known was sufficient, even if extraneous auth events were specified
+			// but weren't needed.
+			if isRejected {
+				if event.StateKey() != nil {
+					return commitTransaction, fmt.Errorf(
+						"missing auth event %s for state event %s (type %q, state key %q)",
+						authEventID, event.EventID(), event.Type(), *event.StateKey(),
+					)
+				} else {
+					return commitTransaction, fmt.Errorf(
+						"missing auth event %s for timeline event %s (type %q)",
+						authEventID, event.EventID(), event.Type(),
+					)
+				}
 			}
+		} else {
+			authEventNIDs = append(authEventNIDs, knownEvents[authEventID].EventNID)
 		}
-		authEventNIDs = append(authEventNIDs, knownEvents[authEventID].EventNID)
 	}
 
 	var softfail bool
