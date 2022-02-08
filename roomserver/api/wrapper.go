@@ -16,6 +16,7 @@ package api
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/matrix-org/gomatrixserverlib"
@@ -73,7 +74,16 @@ func SendEventWithState(
 		stateEventIDs[i] = state.StateEvents[i].EventID()
 	}
 
-	ires = append(ires, InputRoomEvent{
+	if err := SendInputRoomEvents(ctx, rsAPI, ires, async); err != nil {
+		if !errors.Is(err, &gomatrixserverlib.NotAllowed{}) {
+			// We'll ignore "Not allowed" errors on the outliers, because what
+			// ultimately matters is whether the final event with the state
+			// snapshot passes auth or not.
+			return fmt.Errorf("SendInputRoomEvents: %w", err)
+		}
+	}
+
+	ires = append(ires[:0], InputRoomEvent{
 		Kind:          kind,
 		Event:         event,
 		Origin:        origin,
