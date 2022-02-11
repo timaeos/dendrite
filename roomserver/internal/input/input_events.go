@@ -132,13 +132,20 @@ func (r *Inputer) processRoomEvent(
 	// Look up the room information. Note that it's entirely possible at this
 	// stage for the roomInfo to be nil, because it's possible the room doesn't
 	// exist yet (i.e. we're processing the create event).
+	isCreateEvent := event.Type() == gomatrixserverlib.MRoomCreate && event.StateKeyEquals("")
 	roomInfo, err := r.DB.RoomInfo(ctx, event.RoomID())
 	if err != nil {
 		return fmt.Errorf("r.DB.RoomInfo: %w", err)
 	}
+	if roomInfo == nil && !isCreateEvent {
+		return fmt.Errorf("room does not exist")
+	}
 
+	// If it's not a create event then we should work out whether there are any
+	// missing auth or prev events. This will determine whether we go and fetch
+	// any missing events or state from the federation.
 	var missingAuth, missingPrev bool
-	if event.Type() != gomatrixserverlib.MRoomCreate || !event.StateKeyEquals("") {
+	if !isCreateEvent {
 		var missingAuthEventIDs, missingPrevEventIDs []string
 		missingAuthEventIDs, missingPrevEventIDs, err = r.DB.MissingAuthPrevEvents(ctx, event)
 		if err != nil {
@@ -148,6 +155,9 @@ func (r *Inputer) processRoomEvent(
 		missingPrev = !input.HasState && len(missingPrevEventIDs) > 0
 	}
 
+	// If there are missing auth or prev events then we need to know which servers
+	// are in the room so we know who to ask. We won't bother doing this if there
+	// are no missing events to fetch, as it would waste resources unnecessarily.
 	serverRes := &fedapi.QueryJoinedHostServerNamesInRoomResponse{}
 	if missingAuth || missingPrev {
 		serverReq := &fedapi.QueryJoinedHostServerNamesInRoomRequest{
@@ -292,20 +302,22 @@ func (r *Inputer) processRoomEvent(
 		}
 	}
 
+	////////////////////////// LOCKING DATABASE TRANSACTION STARTS HERE //////////////////////////
+
 	// Get a room updater. Note that it's entirely possible for the roomInfo
 	// to be nil here, if the room that we're processing an event for doesn't
 	// exist yet (i.e. we're processing the create event). Because of this, we
 	// will need to re-request the roomInfo after we've stored the event but
 	// before calling calculateAndSetState.
-	var succeeded bool
+	var commit bool
 	updater, err := r.roomUpdaterForRoom(ctx, roomInfo)
 	if err != nil {
 		return fmt.Errorf("r.roomUpdaterForRoom: %w", err)
 	}
 	defer func() {
-		if err = sqlutil.EndTransaction(updater, &succeeded); err != nil {
+		if err = sqlutil.EndTransaction(updater, &commit); err != nil {
 			logger.WithError(err).Error("Failed to commit transaction")
-		} else if succeeded {
+		} else if commit {
 			hooks.Run(hooks.KindNewEventPersisted, headered)
 		}
 	}()
@@ -330,7 +342,7 @@ func (r *Inputer) processRoomEvent(
 	// notify anyone about it.
 	if input.Kind == api.KindOutlier {
 		logger.Debug("Stored outlier")
-		succeeded = true
+		commit = true
 		return nil
 	}
 
@@ -351,9 +363,11 @@ func (r *Inputer) processRoomEvent(
 		return fmt.Errorf("room still does not exist")
 	}
 
+	// If we were supplied with a state snapshot, either from the caller or
+	// from the result of processEventWithMissingState, OR we know all of the
+	// state at the prev events and haven't got a state snapshot yet, then we
+	// will calculate that now and then store it with the event.
 	if input.HasState || (!missingPrev && stateAtEvent.BeforeStateSnapshotNID == 0) {
-		// We haven't calculated a state for this event yet.
-		// Lets calculate one.
 		err = r.calculateAndSetState(ctx, updater, input, roomInfo, &stateAtEvent, event, isRejected)
 		if err != nil {
 			return fmt.Errorf("r.calculateAndSetState: %w", err)
@@ -362,11 +376,11 @@ func (r *Inputer) processRoomEvent(
 
 	// We stop here if the event is rejected: We've stored it but won't update forward extremities or notify anyone about it.
 	if isRejected || softfail {
-		succeeded = true
 		logger.WithError(rejectionErr).WithFields(logrus.Fields{
 			"soft_fail":    softfail,
 			"missing_prev": missingPrev,
 		}).Warn("Stored rejected event")
+		commit = true
 		if rejectionErr != nil {
 			return types.RejectedError(rejectionErr.Error())
 		}
@@ -421,9 +435,11 @@ func (r *Inputer) processRoomEvent(
 	}
 
 	// Everything was OK — the latest events updater didn't error and
-	// we've sent output events.
-	succeeded = true
-	return nil
+	// we've sent output events. There's one final possibility though:
+	// the transaction from the defer statement failed to commit, so
+	// if that is the case then we should return that error here.
+	commit = true
+	return err
 }
 
 // fetchAuthEvents will check to see if any of the
