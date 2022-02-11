@@ -49,6 +49,34 @@ func (d *Database) SupportsConcurrentRoomInputs() bool {
 	return true
 }
 
+func (d *Database) MissingAuthPrevEvents(
+	ctx context.Context, e *gomatrixserverlib.Event,
+) (missingAuth, missingPrev []string, err error) {
+	var info *types.RoomInfo
+	info, err = d.RoomInfo(ctx, e.RoomID())
+	if err != nil {
+		return
+	}
+	if info == nil || !info.IsStub {
+		return
+	}
+
+	for _, authEventID := range e.AuthEventIDs() {
+		if nids, err := d.EventNIDs(ctx, []string{authEventID}); err != nil || len(nids) == 0 {
+			missingAuth = append(missingAuth, authEventID)
+		}
+	}
+
+	for _, prevEventID := range e.PrevEventIDs() {
+		state, err := d.StateAtEventIDs(ctx, []string{prevEventID})
+		if err != nil || len(state) == 0 || (!state[0].IsCreate() && state[0].BeforeStateSnapshotNID == 0) {
+			missingPrev = append(missingPrev, prevEventID)
+		}
+	}
+
+	return
+}
+
 func (d *Database) EventTypeNIDs(
 	ctx context.Context, eventTypes []string,
 ) (map[string]types.EventTypeNID, error) {

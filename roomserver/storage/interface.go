@@ -26,6 +26,10 @@ import (
 type Database interface {
 	// Do we support processing input events for more than one room at a time?
 	SupportsConcurrentRoomInputs() bool
+	// MissingAuthPrevEvents gets information about which auth or prev events are missing for a given event.
+	MissingAuthPrevEvents(
+		ctx context.Context, e *gomatrixserverlib.Event,
+	) (missingAuth, missingPrev []string, err error)
 	// RoomInfo returns room information for the given room ID, or nil if there is no room.
 	RoomInfo(ctx context.Context, roomID string) (*types.RoomInfo, error)
 	// Store the room state at an event in the database
