@@ -36,10 +36,7 @@ CREATE TABLE IF NOT EXISTS roomserver_previous_events (
     previous_reference_sha256 BYTEA NOT NULL,
     -- A list of numeric event IDs of events that reference this prev_event.
     event_nids BIGINT[] NOT NULL,
-    CONSTRAINT roomserver_previous_event_id_unique UNIQUE (previous_event_id, previous_reference_sha256),
-
-	-- Foreign keys
-	CONSTRAINT fk_roomserver_previous_events_previous_event_id FOREIGN KEY(previous_event_id) REFERENCES roomserver_events(event_id) ON DELETE CASCADE
+    CONSTRAINT roomserver_previous_event_id_unique UNIQUE (previous_event_id, previous_reference_sha256)
 );
 `
 
