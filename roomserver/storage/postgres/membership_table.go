@@ -61,7 +61,10 @@ CREATE TABLE IF NOT EXISTS roomserver_membership (
 	-- room joins.
 	target_local BOOLEAN NOT NULL DEFAULT false,
 	forgotten BOOLEAN NOT NULL DEFAULT FALSE,
-	UNIQUE (room_nid, target_nid)
+	UNIQUE (room_nid, target_nid),
+
+	-- Foreign keys
+	CONSTRAINT fk_roomserver_membership_room_nid FOREIGN KEY(room_nid) REFERENCES roomserver_rooms(room_nid) ON DELETE CASCADE
 );
 `
 

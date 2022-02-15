@@ -49,7 +49,10 @@ CREATE TABLE IF NOT EXISTS roomserver_state_snapshots (
 	-- The room NID that the snapshot belongs to.
 	room_nid bigint NOT NULL,
 	-- The state blocks contained within this snapshot.
-	state_block_nids bigint[] NOT NULL
+	state_block_nids bigint[] NOT NULL,
+
+	-- Foreign keys
+	CONSTRAINT fk_roomserver_state_snapshots_room_nid FOREIGN KEY(room_nid) REFERENCES roomserver_rooms(room_nid) ON DELETE CASCADE
 );
 `
 

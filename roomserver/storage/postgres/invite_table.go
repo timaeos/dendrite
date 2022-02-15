@@ -49,7 +49,10 @@ CREATE TABLE IF NOT EXISTS roomserver_invites (
 	-- explicitly when rejecting events over federation.
 	retired BOOLEAN NOT NULL DEFAULT FALSE,
 	-- The invite event JSON.
-	invite_event_json TEXT NOT NULL
+	invite_event_json TEXT NOT NULL,
+
+	-- Foreign keys
+	CONSTRAINT fk_roomserver_invites_room_nid FOREIGN KEY(room_nid) REFERENCES roomserver_rooms(room_nid) ON DELETE CASCADE
 );
 
 CREATE INDEX IF NOT EXISTS roomserver_invites_active_idx ON roomserver_invites (target_nid, room_nid)

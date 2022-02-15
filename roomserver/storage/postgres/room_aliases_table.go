@@ -32,7 +32,10 @@ CREATE TABLE IF NOT EXISTS roomserver_room_aliases (
     -- Room ID the alias refers to
     room_id TEXT NOT NULL,
     -- User ID of the creator of this alias
-    creator_id TEXT NOT NULL
+    creator_id TEXT NOT NULL,
+
+	-- Foreign keys
+	CONSTRAINT fk_roomserver_room_aliases_room_id FOREIGN KEY(room_id) REFERENCES roomserver_rooms(room_id) ON DELETE CASCADE
 );
 
 CREATE INDEX IF NOT EXISTS roomserver_room_id_idx ON roomserver_room_aliases(room_id);

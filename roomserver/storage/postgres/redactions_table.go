@@ -31,7 +31,11 @@ CREATE TABLE IF NOT EXISTS roomserver_redactions (
 	redacts_event_id TEXT NOT NULL,
 	-- Initially FALSE, set to TRUE when the redaction has been validated according to rooms v3+ spec
 	-- https://matrix.org/docs/spec/rooms/v3#authorization-rules-for-events
-	validated BOOLEAN NOT NULL
+	validated BOOLEAN NOT NULL,
+
+	-- Foreign keys
+	CONSTRAINT fk_roomserver_redactions_redaction_event_id FOREIGN KEY(redaction_event_id) REFERENCES roomserver_events(event_id) ON DELETE CASCADE,
+	CONSTRAINT fk_roomserver_redactions_redacted_event_id FOREIGN KEY(redacts_event_id) REFERENCES roomserver_events(event_id) ON DELETE CASCADE
 );
 CREATE INDEX IF NOT EXISTS roomserver_redactions_redacts_event_id ON roomserver_redactions(redacts_event_id);
 `

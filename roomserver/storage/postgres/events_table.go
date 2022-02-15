@@ -66,7 +66,11 @@ CREATE TABLE IF NOT EXISTS roomserver_events (
     reference_sha256 BYTEA NOT NULL,
     -- A list of numeric IDs for events that can authenticate this event.
 	auth_event_nids BIGINT[] NOT NULL,
-	is_rejected BOOLEAN NOT NULL DEFAULT FALSE
+	is_rejected BOOLEAN NOT NULL DEFAULT FALSE,
+
+	-- Foreign keys
+	CONSTRAINT fk_roomserver_events_room_nid FOREIGN KEY(room_nid) REFERENCES roomserver_rooms(room_nid) ON DELETE CASCADE,
+	CONSTRAINT fk_roomserver_events_event_type_nid FOREIGN KEY(event_type_nid) REFERENCES roomserver_event_types(event_type_nid)
 );
 `
 

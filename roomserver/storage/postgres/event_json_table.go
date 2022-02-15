@@ -38,7 +38,10 @@ CREATE TABLE IF NOT EXISTS roomserver_event_json (
     -- Not stored as JSON because we already validate the JSON in the server
     -- so there is no point in postgres validating it.
     -- TODO: Should we be compressing the events with Snappy or DEFLATE?
-    event_json TEXT NOT NULL
+    event_json TEXT NOT NULL,
+
+	-- Foreign keys
+	CONSTRAINT fk_roomserver_event_json_event_nid FOREIGN KEY(event_nid) REFERENCES roomserver_events(event_nid) ON DELETE CASCADE
 );
 `
 

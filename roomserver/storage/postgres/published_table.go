@@ -29,7 +29,10 @@ CREATE TABLE IF NOT EXISTS roomserver_published (
     -- The room ID of the room
     room_id TEXT NOT NULL PRIMARY KEY,
     -- Whether it is published or not
-    published BOOLEAN NOT NULL DEFAULT false
+    published BOOLEAN NOT NULL DEFAULT false,
+
+	-- Foreign keys
+	CONSTRAINT fk_roomserver_published_room_id FOREIGN KEY(room_id) REFERENCES roomserver_rooms(room_id) ON DELETE CASCADE
 );
 `
 

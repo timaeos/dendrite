@@ -73,13 +73,13 @@ func (d *Database) create(db *sql.DB) error {
 	if err := createEventTypesTable(db); err != nil {
 		return err
 	}
-	if err := createEventJSONTable(db); err != nil {
+	if err := createRoomsTable(db); err != nil {
 		return err
 	}
 	if err := createEventsTable(db); err != nil {
 		return err
 	}
-	if err := createRoomsTable(db); err != nil {
+	if err := createEventJSONTable(db); err != nil {
 		return err
 	}
 	if err := createStateBlockTable(db); err != nil {
