@@ -46,7 +46,7 @@ func NewOutputClientDataConsumer(
 		jetstream:    js,
 		db:           store,
 		ServerName:   cfg.Matrix.ServerName,
-		durable:      cfg.Matrix.JetStream.Durable("PushServerClientAPIConsumer"),
+		durable:      cfg.Matrix.JetStream.Durable("UserAPIClientAPIConsumer"),
 		topic:        cfg.Matrix.JetStream.TopicFor(jetstream.OutputClientData),
 		pgClient:     pgClient,
 		userAPI:      userAPI,

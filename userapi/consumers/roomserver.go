@@ -52,7 +52,7 @@ func NewOutputRoomEventConsumer(
 		cfg:          cfg,
 		jetstream:    js,
 		db:           store,
-		durable:      cfg.Matrix.JetStream.Durable("PushServerClientAPIConsumer"),
+		durable:      cfg.Matrix.JetStream.Durable("UserAPIRoomServerConsumer"),
 		topic:        cfg.Matrix.JetStream.TopicFor(jetstream.OutputRoomEvent),
 		pgClient:     pgClient,
 		userAPI:      userAPI,
@@ -155,7 +155,7 @@ func (s *OutputRoomEventConsumer) processMessage(ctx context.Context, event *gom
 		if err := s.notifyLocal(ctx, event, mem, roomSize, roomName); err != nil {
 			log.WithFields(log.Fields{
 				"localpart": mem.Localpart,
-			}).WithError(err).Errorf("Unable to push to local user")
+			}).WithError(err).Debugf("Unable to push to local user")
 			continue
 		}
 	}

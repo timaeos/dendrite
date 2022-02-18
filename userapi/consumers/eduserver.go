@@ -42,7 +42,7 @@ func NewOutputReceiptEventConsumer(
 		cfg:          cfg,
 		jetstream:    js,
 		db:           store,
-		durable:      cfg.Matrix.JetStream.Durable("PushServerEDUServerConsumer"),
+		durable:      cfg.Matrix.JetStream.Durable("UserAPIEDUServerConsumer"),
 		receiptTopic: cfg.Matrix.JetStream.TopicFor(jetstream.OutputReceiptEvent),
 		pgClient:     pgClient,
 		syncProducer: syncProducer,
