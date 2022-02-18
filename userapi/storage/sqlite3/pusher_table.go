@@ -46,13 +46,13 @@ CREATE TABLE IF NOT EXISTS userapi_pushers (
 );
 
 -- For faster deleting by app_id, pushkey pair.
-CREATE INDEX IF NOT EXISTS pusher_app_id_pushkey_idx ON userapi_pushers(app_id, pushkey);
+CREATE INDEX IF NOT EXISTS userapi_pusher_app_id_pushkey_idx ON userapi_pushers(app_id, pushkey);
 
 -- For faster retrieving by localpart.
-CREATE INDEX IF NOT EXISTS pusher_localpart_idx ON userapi_pushers(localpart);
+CREATE INDEX IF NOT EXISTS userapi_pusher_localpart_idx ON userapi_pushers(localpart);
 
 -- Pushkey must be unique for a given user and app.
-CREATE UNIQUE INDEX IF NOT EXISTS pusher_app_id_pushkey_localpart_idx ON userapi_pushers(app_id, pushkey, localpart);
+CREATE UNIQUE INDEX IF NOT EXISTS userapi_pusher_app_id_pushkey_localpart_idx ON userapi_pushers(app_id, pushkey, localpart);
 `
 
 const insertPusherSQL = "" +

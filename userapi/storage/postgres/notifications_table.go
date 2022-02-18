@@ -48,9 +48,9 @@ CREATE TABLE IF NOT EXISTS userapi_notifications (
     read BOOLEAN NOT NULL DEFAULT FALSE
 );
 
-CREATE INDEX IF NOT EXISTS notification_localpart_room_id_event_id_idx ON userapi_notifications(localpart, room_id, event_id);
-CREATE INDEX IF NOT EXISTS notification_localpart_room_id_id_idx ON userapi_notifications(localpart, room_id, id);
-CREATE INDEX IF NOT EXISTS notification_localpart_id_idx ON userapi_notifications(localpart, id);
+CREATE INDEX IF NOT EXISTS userapi_notification_localpart_room_id_event_id_idx ON userapi_notifications(localpart, room_id, event_id);
+CREATE INDEX IF NOT EXISTS userapi_notification_localpart_room_id_id_idx ON userapi_notifications(localpart, room_id, id);
+CREATE INDEX IF NOT EXISTS userapi_notification_localpart_id_idx ON userapi_notifications(localpart, id);
 `
 
 const insertNotificationSQL = "" +
@@ -63,7 +63,7 @@ const deleteNotificationsUpToSQL = "" +
 
 const updateNotificationReadSQL = "" +
 	"UPDATE userapi_notifications SET read = $1 WHERE localpart = $2 AND room_id = $3 AND id <= (" +
-	"SELECT MAX(id) ROM userapi_notifications WHERE localpart = $2 AND room_id = $3 AND event_id = $4" +
+	"SELECT MAX(id) FROM userapi_notifications WHERE localpart = $2 AND room_id = $3 AND event_id = $4" +
 	") AND read <> $1"
 
 const selectNotificationSQL = "" +
