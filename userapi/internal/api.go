@@ -716,11 +716,37 @@ func (a *UserInternalAPI) QueryPushRules(ctx context.Context, req *api.QueryPush
 		return err
 	}
 	bs, ok := userRes.GlobalAccountData[pushRulesAccountDataType]
+	if ok {
+		// Legacy Dendrite users will have completely empty push rules, so we should
+		// detect that situation and set some defaults.
+		var rules struct {
+			Content   []json.RawMessage `json:"content"`
+			Override  []json.RawMessage `json:"override"`
+			Room      []json.RawMessage `json:"room"`
+			Sender    []json.RawMessage `json:"sender"`
+			Underride []json.RawMessage `json:"underride"`
+		}
+		if err := json.Unmarshal([]byte(bs), &rules); err == nil {
+			count := len(rules.Content) + len(rules.Override) +
+				len(rules.Room) + len(rules.Sender) + len(rules.Underride)
+			ok = count > 0
+		}
+	}
 	if !ok {
-		// TODO: should this return the default rules? The default
-		// rules are written to accounts DB on account creation, so
-		// this error is unexpected.
-		return fmt.Errorf("push rules account data not found")
+		// If we didn't find any default push rules then we should just generate some
+		// fresh ones.
+		localpart, _, err := gomatrixserverlib.SplitID('@', req.UserID)
+		if err != nil {
+			return fmt.Errorf("failed to split user ID %q for push rules", req.UserID)
+		}
+		pushRuleSets := pushrules.DefaultAccountRuleSets(localpart, a.ServerName)
+		prbs, err := json.Marshal(pushRuleSets)
+		if err != nil {
+			return fmt.Errorf("failed to marshal default push rules: %w", err)
+		}
+		if err := a.DB.SaveAccountData(ctx, localpart, "", pushRulesAccountDataType, json.RawMessage(prbs)); err != nil {
+			return fmt.Errorf("failed to save default push rules: %w", err)
+		}
 	}
 	var data pushrules.AccountRuleSets
 	if err := json.Unmarshal([]byte(bs), &data); err != nil {
