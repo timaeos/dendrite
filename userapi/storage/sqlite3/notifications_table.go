@@ -38,7 +38,7 @@ type notificationsStatements struct {
 
 const notificationSchema = `
 CREATE TABLE IF NOT EXISTS userapi_notifications (
-    id BIGSERIAL PRIMARY KEY,
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
 	localpart TEXT NOT NULL,
 	room_id TEXT NOT NULL,
 	event_id TEXT NOT NULL,

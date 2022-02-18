@@ -30,7 +30,7 @@ import (
 // See https://matrix.org/docs/spec/client_server/r0.6.1#get-matrix-client-r0-pushers
 const pushersSchema = `
 CREATE TABLE IF NOT EXISTS userapi_pushers (
-	id SERIAL PRIMARY KEY,
+	id BIGSERIAL PRIMARY KEY,
 	-- The Matrix user ID localpart for this pusher
 	localpart TEXT NOT NULL,
 	session_id BIGINT DEFAULT NULL,
