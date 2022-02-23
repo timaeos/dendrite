@@ -483,7 +483,8 @@ f,pre Presence changes are also reported to remote room members
 pre Presence changes to UNAVAILABLE are reported to local room members 
 f,pre Presence changes to UNAVAILABLE are reported to remote room members 
 v1s Newly created users see their own presence in /initialSync (SYT-34) 
-dvk Can upload device keys 
+dvk Can upload device keys
+dvk Rejects invalid device keys
 dvk Should reject keys claiming to belong to a different user
 dvk Can query device keys using POST 
 dvk Can query specific device keys using POST 

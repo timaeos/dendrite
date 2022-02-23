@@ -24,6 +24,7 @@ import (
 	"github.com/matrix-org/dendrite/keyserver/api"
 	userapi "github.com/matrix-org/dendrite/userapi/api"
 	"github.com/matrix-org/util"
+	"github.com/tidwall/gjson"
 )
 
 type uploadKeysRequest struct {
@@ -31,11 +32,26 @@ type uploadKeysRequest struct {
 	OneTimeKeys map[string]json.RawMessage `json:"one_time_keys"`
 }
 
+func (k uploadKeysRequest) valid() bool {
+	algorithms := gjson.GetBytes(k.DeviceKeys, "device_keys.algorithms").Exists()
+	devID := gjson.GetBytes(k.DeviceKeys, "device_keys.device_id").Exists()
+	keys := gjson.GetBytes(k.DeviceKeys, "device_keys.keys").Exists()
+	signatures := gjson.GetBytes(k.DeviceKeys, "device_keys.keys").Exists()
+	return algorithms && devID && keys && signatures
+}
+
 func UploadKeys(req *http.Request, keyAPI api.KeyInternalAPI, device *userapi.Device) util.JSONResponse {
 	var r uploadKeysRequest
 	resErr := httputil.UnmarshalJSONRequest(req, &r)
 	if resErr != nil {
 		return *resErr
+	}
+
+	if !r.valid() {
+		return util.JSONResponse{
+			Code: http.StatusBadRequest,
+			JSON: jsonerror.BadJSON("invalid device keys"),
+		}
 	}
 
 	uploadReq := &api.PerformUploadKeysRequest{
