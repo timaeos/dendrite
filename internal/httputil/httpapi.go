@@ -41,6 +41,18 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+var externalResponseCodes = prometheus.NewCounterVec(
+	prometheus.CounterOpts{
+		Name: "dendrite_http_response_codes",
+		Help: "Response codes returned to external requests",
+	},
+	[]string{"code"},
+)
+
+func init() {
+	prometheus.MustRegister(externalResponseCodes)
+}
+
 // BasicAuth is used for authorization on /metrics handlers
 type BasicAuth struct {
 	Username string `yaml:"username"`
@@ -127,6 +139,7 @@ func MakeExternalAPI(metricsName string, f func(*http.Request) util.JSONResponse
 				// discard errors as this is for debugging
 				_, _ = io.Copy(w, resp.Body)
 				_ = resp.Body.Close()
+				externalResponseCodes.WithLabelValues(fmt.Sprintf("%d", resp.StatusCode)).Inc()
 			}()
 
 			// Log incoming request
@@ -145,7 +158,6 @@ func MakeExternalAPI(metricsName string, f func(*http.Request) util.JSONResponse
 		defer span.Finish()
 		req = req.WithContext(opentracing.ContextWithSpan(req.Context(), span))
 		h.ServeHTTP(nextWriter, req)
-
 	}
 
 	return http.HandlerFunc(withSpan)
