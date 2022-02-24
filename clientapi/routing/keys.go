@@ -33,6 +33,9 @@ type uploadKeysRequest struct {
 	OneTimeKeys map[string]json.RawMessage `json:"one_time_keys"`
 }
 
+// validate checks that the uploaded device keys passed all required fields.
+// https://spec.matrix.org/v1.2/client-server-api/#post_matrixclientv3keysupload
+// device_id and user_id are populated from the http request
 func (k uploadKeysRequest) validate() error {
 	if k.DeviceKeys == nil || len(k.DeviceKeys) == 0 {
 		return nil
