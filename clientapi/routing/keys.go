@@ -16,6 +16,7 @@ package routing
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"time"
 
@@ -32,12 +33,24 @@ type uploadKeysRequest struct {
 	OneTimeKeys map[string]json.RawMessage `json:"one_time_keys"`
 }
 
-func (k uploadKeysRequest) valid() bool {
-	algorithms := gjson.GetBytes(k.DeviceKeys, "device_keys.algorithms").Exists()
-	devID := gjson.GetBytes(k.DeviceKeys, "device_keys.device_id").Exists()
-	keys := gjson.GetBytes(k.DeviceKeys, "device_keys.keys").Exists()
-	signatures := gjson.GetBytes(k.DeviceKeys, "device_keys.keys").Exists()
-	return algorithms && devID && keys && signatures
+func (k uploadKeysRequest) validate() error {
+	if k.DeviceKeys == nil || len(k.DeviceKeys) == 0 {
+		return nil
+	}
+	if !gjson.GetBytes(k.DeviceKeys, "signatures").Exists() {
+		return fmt.Errorf("missing signatures")
+	}
+	if !gjson.GetBytes(k.DeviceKeys, "keys").Exists() {
+		return fmt.Errorf("missing keys")
+	}
+	if !gjson.GetBytes(k.DeviceKeys, "device_id").Exists() {
+		return fmt.Errorf("missing device_id")
+	}
+	if !gjson.GetBytes(k.DeviceKeys, "algorithms").Exists() {
+		return fmt.Errorf("missing algorithms")
+	}
+
+	return nil
 }
 
 func UploadKeys(req *http.Request, keyAPI api.KeyInternalAPI, device *userapi.Device) util.JSONResponse {
@@ -46,11 +59,10 @@ func UploadKeys(req *http.Request, keyAPI api.KeyInternalAPI, device *userapi.De
 	if resErr != nil {
 		return *resErr
 	}
-
-	if !r.valid() {
+	if err := r.validate(); err != nil {
 		return util.JSONResponse{
 			Code: http.StatusBadRequest,
-			JSON: jsonerror.BadJSON("invalid device keys"),
+			JSON: jsonerror.BadJSON(fmt.Sprintf("invalid device keys: %s", err.Error())),
 		}
 	}
 
