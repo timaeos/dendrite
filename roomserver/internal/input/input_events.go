@@ -139,8 +139,15 @@ func (r *Inputer) processRoomEvent(
 		return fmt.Errorf("room %s does not exist for event %s", event.RoomID(), event.EventID())
 	}
 
+	// If nothing else, we should be willing to ask the server that
+	// sent us this event if something is missing. If we are joining
+	// the room for the first time then the server we are joining via
+	// (populated in the input origin field) is our best bet.
+	serverRes := &fedapi.QueryJoinedHostServerNamesInRoomResponse{
+		ServerNames: []gomatrixserverlib.ServerName{input.Origin},
+	}
+
 	var missingAuth, missingPrev bool
-	serverRes := &fedapi.QueryJoinedHostServerNamesInRoomResponse{}
 	if !isCreateEvent {
 		missingAuthIDs, missingPrevIDs, err := r.DB.MissingAuthPrevEvents(ctx, event)
 		if err != nil {
@@ -151,32 +158,34 @@ func (r *Inputer) processRoomEvent(
 	}
 
 	if missingAuth || missingPrev {
+		// If we're joining the room then it's possible that the below
+		// will fail if we don't know about the room yet, so only try
+		// to use the response here if the request succeeds.
 		serverReq := &fedapi.QueryJoinedHostServerNamesInRoomRequest{
 			RoomID:      event.RoomID(),
 			ExcludeSelf: true,
 		}
-		if err := r.FSAPI.QueryJoinedHostServerNamesInRoom(ctx, serverReq, serverRes); err != nil {
-			return fmt.Errorf("r.FSAPI.QueryJoinedHostServerNamesInRoom: %w", err)
-		}
-		// Sort all of the servers into a map so that we can randomise
-		// their order. Then make sure that the input origin and the
-		// event origin are first on the list.
-		servers := map[gomatrixserverlib.ServerName]struct{}{}
-		for _, server := range serverRes.ServerNames {
-			servers[server] = struct{}{}
-		}
-		serverRes.ServerNames = serverRes.ServerNames[:0]
-		if input.Origin != "" {
-			serverRes.ServerNames = append(serverRes.ServerNames, input.Origin)
-			delete(servers, input.Origin)
-		}
-		if origin := event.Origin(); origin != input.Origin {
-			serverRes.ServerNames = append(serverRes.ServerNames, origin)
-			delete(servers, origin)
-		}
-		for server := range servers {
-			serverRes.ServerNames = append(serverRes.ServerNames, server)
-			delete(servers, server)
+		if err := r.FSAPI.QueryJoinedHostServerNamesInRoom(ctx, serverReq, serverRes); err == nil {
+			// Sort all of the servers into a map so that we can randomise
+			// their order. Then make sure that the input origin and the
+			// event origin are first on the list.
+			servers := map[gomatrixserverlib.ServerName]struct{}{}
+			for _, server := range serverRes.ServerNames {
+				servers[server] = struct{}{}
+			}
+			serverRes.ServerNames = serverRes.ServerNames[:0]
+			if input.Origin != "" {
+				serverRes.ServerNames = append(serverRes.ServerNames, input.Origin)
+				delete(servers, input.Origin)
+			}
+			if origin := event.Origin(); origin != input.Origin {
+				serverRes.ServerNames = append(serverRes.ServerNames, origin)
+				delete(servers, origin)
+			}
+			for server := range servers {
+				serverRes.ServerNames = append(serverRes.ServerNames, server)
+				delete(servers, server)
+			}
 		}
 	}
 
