@@ -76,14 +76,14 @@ func NewInternalAPI(
 		base.ProcessContext, cfg, js, db, pgClient, userAPI, syncProducer,
 	)
 	if err := readConsumer.Start(); err != nil {
-		logrus.WithError(err).Panic("failed to start user API clientapi consumer")
+		logrus.WithError(err).Panic("failed to start user API read update consumer")
 	}
 
 	eventConsumer := consumers.NewOutputStreamEventConsumer(
 		base.ProcessContext, cfg, js, db, pgClient, userAPI, rsAPI, syncProducer,
 	)
 	if err := eventConsumer.Start(); err != nil {
-		logrus.WithError(err).Panic("failed to start user API room server consumer")
+		logrus.WithError(err).Panic("failed to start user API streamed event consumer")
 	}
 
 	return userAPI

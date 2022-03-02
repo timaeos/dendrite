@@ -87,7 +87,7 @@ func (s *OutputStreamEventConsumer) onMessage(ctx context.Context, msg *nats.Msg
 		"event_id":   output.Event.EventID(),
 		"event_type": output.Event.Type(),
 		"stream_pos": output.StreamPosition,
-	}).Infof("Received message from sync API: %#v", output)
+	}).Tracef("Received message from sync API: %#v", output)
 
 	if err := s.processMessage(ctx, output.Event, int64(output.StreamPosition)); err != nil {
 		log.WithFields(log.Fields{
@@ -578,7 +578,7 @@ func (s *OutputStreamEventConsumer) deleteRejectedPushers(ctx context.Context, d
 		"localpart":   localpart,
 		"app_id0":     devices[0].AppID,
 		"num_devices": len(devices),
-	}).Infof("Deleting pushers rejected by the HTTP push gateway")
+	}).Warnf("Deleting pushers rejected by the HTTP push gateway")
 
 	for _, d := range devices {
 		if err := s.db.RemovePusher(ctx, d.AppID, d.PushKey, localpart); err != nil {

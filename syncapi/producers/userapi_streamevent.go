@@ -21,7 +21,6 @@ import (
 	"github.com/matrix-org/dendrite/syncapi/types"
 	"github.com/matrix-org/gomatrixserverlib"
 	"github.com/nats-io/nats.go"
-	"github.com/sirupsen/logrus"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -49,14 +48,12 @@ func (p *UserAPIStreamEventProducer) SendStreamEvent(roomID string, event *gomat
 		return err
 	}
 
-	logrus.Infof("Sending %s", string(m.Data))
-
 	log.WithFields(log.Fields{
 		"room_id":    roomID,
 		"event_id":   event.EventID(),
 		"event_type": event.Type(),
 		"stream_pos": pos,
-	}).Infof("Producing to topic '%s'", p.Topic)
+	}).Tracef("Producing to topic '%s'", p.Topic)
 
 	_, err = p.JetStream.PublishMsg(m)
 	return err

@@ -15,6 +15,7 @@ import (
 	"github.com/matrix-org/dendrite/userapi/util"
 	"github.com/matrix-org/gomatrixserverlib"
 	"github.com/nats-io/nats.go"
+	"github.com/sirupsen/logrus"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -70,6 +71,7 @@ func (s *OutputReadUpdateConsumer) onMessage(ctx context.Context, msg *nats.Msg)
 		log.WithError(err).Error("userapi clientapi consumer: message parse failure")
 		return true
 	}
+	logrus.Warnf("Received read update: %+v", read)
 	if read.FullyRead == 0 {
 		return true
 	}

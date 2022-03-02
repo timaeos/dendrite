@@ -38,8 +38,9 @@ func (p *SyncAPIProducer) SendData(userID string, roomID string, dataType string
 	m.Header.Set(jetstream.UserID, userID)
 
 	data := eventutil.AccountData{
-		RoomID: roomID,
-		Type:   dataType,
+		RoomID:     roomID,
+		Type:       dataType,
+		ReadMarker: readMarker,
 	}
 	var err error
 	m.Data, err = json.Marshal(data)
