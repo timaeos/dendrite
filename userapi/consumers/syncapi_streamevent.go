@@ -73,23 +73,25 @@ func (s *OutputStreamEventConsumer) Start() error {
 }
 
 func (s *OutputStreamEventConsumer) onMessage(ctx context.Context, msg *nats.Msg) bool {
-	var output types.StreamEvent
-	output.HeaderedEvent = &gomatrixserverlib.HeaderedEvent{}
+	var output types.StreamedEvent
+	output.Event = &gomatrixserverlib.HeaderedEvent{}
 	if err := json.Unmarshal(msg.Data, &output); err != nil {
 		log.WithError(err).Errorf("userapi consumer: message parse failure")
 		return true
 	}
-	if output.HeaderedEvent.Event == nil {
+	if output.Event.Event == nil {
 		return true
 	}
 
 	log.WithFields(log.Fields{
-		"event_type": output.Type,
-	}).Tracef("Received message from room server: %#v", output)
+		"event_id":   output.Event.EventID(),
+		"event_type": output.Event.Type(),
+		"stream_pos": output.StreamPosition,
+	}).Infof("Received message from sync API: %#v", output)
 
-	if err := s.processMessage(ctx, output.HeaderedEvent, int64(output.StreamPosition)); err != nil {
+	if err := s.processMessage(ctx, output.Event, int64(output.StreamPosition)); err != nil {
 		log.WithFields(log.Fields{
-			"event_id": output.HeaderedEvent.EventID(),
+			"event_id": output.Event.EventID(),
 		}).WithError(err).Errorf("userapi consumer: process room event failure")
 	}
 
@@ -99,7 +101,7 @@ func (s *OutputStreamEventConsumer) onMessage(ctx context.Context, msg *nats.Msg
 func (s *OutputStreamEventConsumer) processMessage(ctx context.Context, event *gomatrixserverlib.HeaderedEvent, pos int64) error {
 	log.WithFields(log.Fields{
 		"event_type": event.Type(),
-	}).Tracef("Received event from room server: %#v", event)
+	}).Tracef("Received event from sync API: %#v", event)
 
 	members, roomSize, err := s.localRoomMembers(ctx, event.RoomID())
 	if err != nil {
