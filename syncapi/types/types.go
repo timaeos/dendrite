@@ -476,6 +476,8 @@ type Peek struct {
 }
 
 type ReadUpdate struct {
+	UserID    string         `json:"user_id"`
+	RoomID    string         `json:"room_id"`
 	Read      StreamPosition `json:"read,omitempty"`
 	FullyRead StreamPosition `json:"fully_read,omitempty"`
 }

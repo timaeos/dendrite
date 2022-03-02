@@ -39,6 +39,8 @@ func (p *UserAPIReadProducer) SendReadUpdate(userID, roomID string, readPos, ful
 	m.Header.Set(jetstream.RoomID, roomID)
 
 	data := types.ReadUpdate{
+		UserID:    userID,
+		RoomID:    roomID,
 		Read:      readPos,
 		FullyRead: fullyReadPos,
 	}
