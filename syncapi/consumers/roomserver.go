@@ -198,14 +198,14 @@ func (s *OutputRoomEventConsumer) onNewRoomEvent(
 		return nil
 	}
 
-	if pduPos, err = s.notifyJoinedPeeks(ctx, ev, pduPos); err != nil {
-		log.WithError(err).Errorf("Failed to notifyJoinedPeeks for PDU pos %d", pduPos)
+	if err := s.producer.SendStreamEvent(ev.RoomID(), ev, pduPos); err != nil {
+		log.WithError(err).Errorf("Failed to send stream output event for event %s", ev.EventID())
 		sentry.CaptureException(err)
 		return err
 	}
 
-	if err := s.producer.SendStreamEvent(ev.RoomID(), ev, pduPos); err != nil {
-		log.WithError(err).Errorf("Failed to send stream output event for event %s", ev.EventID())
+	if pduPos, err = s.notifyJoinedPeeks(ctx, ev, pduPos); err != nil {
+		log.WithError(err).Errorf("Failed to notifyJoinedPeeks for PDU pos %d", pduPos)
 		sentry.CaptureException(err)
 		return err
 	}
