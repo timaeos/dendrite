@@ -24,21 +24,26 @@ import (
 	"github.com/matrix-org/dendrite/setup/jetstream"
 	"github.com/matrix-org/dendrite/setup/process"
 	"github.com/matrix-org/dendrite/syncapi/notifier"
+	"github.com/matrix-org/dendrite/syncapi/producers"
 	"github.com/matrix-org/dendrite/syncapi/storage"
 	"github.com/matrix-org/dendrite/syncapi/types"
+	"github.com/matrix-org/gomatrixserverlib"
 	"github.com/nats-io/nats.go"
+	"github.com/sirupsen/logrus"
 	log "github.com/sirupsen/logrus"
 )
 
 // OutputClientDataConsumer consumes events that originated in the client API server.
 type OutputClientDataConsumer struct {
-	ctx       context.Context
-	jetstream nats.JetStreamContext
-	durable   string
-	topic     string
-	db        storage.Database
-	stream    types.StreamProvider
-	notifier  *notifier.Notifier
+	ctx        context.Context
+	jetstream  nats.JetStreamContext
+	durable    string
+	topic      string
+	db         storage.Database
+	stream     types.StreamProvider
+	notifier   *notifier.Notifier
+	serverName gomatrixserverlib.ServerName
+	producer   *producers.UserAPIReadProducer
 }
 
 // NewOutputClientDataConsumer creates a new OutputClientData consumer. Call Start() to begin consuming from room servers.
@@ -49,15 +54,18 @@ func NewOutputClientDataConsumer(
 	store storage.Database,
 	notifier *notifier.Notifier,
 	stream types.StreamProvider,
+	producer *producers.UserAPIReadProducer,
 ) *OutputClientDataConsumer {
 	return &OutputClientDataConsumer{
-		ctx:       process.Context(),
-		jetstream: js,
-		topic:     cfg.Matrix.JetStream.TopicFor(jetstream.OutputClientData),
-		durable:   cfg.Matrix.JetStream.Durable("SyncAPIClientAPIConsumer"),
-		db:        store,
-		notifier:  notifier,
-		stream:    stream,
+		ctx:        process.Context(),
+		jetstream:  js,
+		topic:      cfg.Matrix.JetStream.TopicFor(jetstream.OutputClientData),
+		durable:    cfg.Matrix.JetStream.Durable("SyncAPIClientAPIConsumer"),
+		db:         store,
+		notifier:   notifier,
+		stream:     stream,
+		serverName: cfg.Matrix.ServerName,
+		producer:   producer,
 	}
 }
 
@@ -98,6 +106,46 @@ func (s *OutputClientDataConsumer) onMessage(ctx context.Context, msg *nats.Msg)
 			"room_id":    output.RoomID,
 			log.ErrorKey: err,
 		}).Panicf("could not save account data")
+	}
+
+	if output.Type == "m.fully_read" && output.ReadMarker != nil {
+		if _, serverName, err := gomatrixserverlib.SplitID('@', userID); err == nil && serverName == s.serverName {
+			var readPos types.StreamPosition
+			var fullyReadPos types.StreamPosition
+
+			if output.ReadMarker.Read != "" {
+				if _, readPos, err = s.db.PositionInTopology(ctx, output.ReadMarker.Read); err != nil {
+					log.WithError(err).WithFields(logrus.Fields{
+						"user_id": userID,
+						"room_id": output.RoomID,
+					}).Errorf("Failed to find position in topology for event %s", output.ReadMarker.Read)
+					sentry.CaptureException(err)
+					return false
+				}
+			}
+
+			if output.ReadMarker.FullyRead != "" {
+				if _, fullyReadPos, err = s.db.PositionInTopology(ctx, output.ReadMarker.FullyRead); err != nil {
+					log.WithError(err).WithFields(logrus.Fields{
+						"user_id": userID,
+						"room_id": output.RoomID,
+					}).Errorf("Failed to find position in topology for event %s", output.ReadMarker.FullyRead)
+					sentry.CaptureException(err)
+					return false
+				}
+			}
+
+			if readPos > 0 || fullyReadPos > 0 {
+				if err := s.producer.SendReadUpdate(userID, output.RoomID, readPos, fullyReadPos); err != nil {
+					log.WithError(err).WithFields(logrus.Fields{
+						"user_id": userID,
+						"room_id": output.RoomID,
+					}).Errorf("Failed to send read update")
+					sentry.CaptureException(err)
+					return false
+				}
+			}
+		}
 	}
 
 	s.stream.Advance(streamPos)

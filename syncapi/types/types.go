@@ -474,3 +474,8 @@ type Peek struct {
 	New     bool
 	Deleted bool
 }
+
+type ReadUpdate struct {
+	Read      StreamPosition `json:"read,omitempty"`
+	FullyRead StreamPosition `json:"fully_read,omitempty"`
+}
