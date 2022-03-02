@@ -67,7 +67,7 @@ func (s *OutputReadUpdateConsumer) Start() error {
 func (s *OutputReadUpdateConsumer) onMessage(ctx context.Context, msg *nats.Msg) bool {
 	var read types.ReadUpdate
 	if err := json.Unmarshal(msg.Data, &read); err != nil {
-		log.WithError(err).Error("pushserver clientapi consumer: message parse failure")
+		log.WithError(err).Error("userapi clientapi consumer: message parse failure")
 		return true
 	}
 	if read.FullyRead == 0 {
@@ -82,7 +82,7 @@ func (s *OutputReadUpdateConsumer) onMessage(ctx context.Context, msg *nats.Msg)
 		log.WithFields(log.Fields{
 			"user_id": userID,
 			"room_id": roomID,
-		}).WithError(err).Error("pushserver clientapi consumer: SplitID failure")
+		}).WithError(err).Error("userapi clientapi consumer: SplitID failure")
 		return true
 	}
 
@@ -90,7 +90,7 @@ func (s *OutputReadUpdateConsumer) onMessage(ctx context.Context, msg *nats.Msg)
 		log.WithFields(log.Fields{
 			"user_id": userID,
 			"room_id": roomID,
-		}).Error("pushserver clientapi consumer: not a local user")
+		}).Error("userapi clientapi consumer: not a local user")
 		return true
 	}
 
@@ -108,7 +108,7 @@ func (s *OutputReadUpdateConsumer) onMessage(ctx context.Context, msg *nats.Msg)
 			"localpart": localpart,
 			"room_id":   read.RoomID,
 			"user_id":   read.UserID,
-		}).WithError(err).Errorf("pushserver clientapi consumer: DeleteNotificationsUpTo failed")
+		}).WithError(err).Errorf("userapi clientapi consumer: DeleteNotificationsUpTo failed")
 		return false
 	}
 
@@ -118,7 +118,7 @@ func (s *OutputReadUpdateConsumer) onMessage(ctx context.Context, msg *nats.Msg)
 				"localpart": localpart,
 				"room_id":   read.RoomID,
 				"user_id":   read.UserID,
-			}).WithError(err).Error("pushserver clientapi consumer: NotifyUserCounts failed")
+			}).WithError(err).Error("userapi clientapi consumer: NotifyUserCounts failed")
 			return false
 		}
 
@@ -127,24 +127,10 @@ func (s *OutputReadUpdateConsumer) onMessage(ctx context.Context, msg *nats.Msg)
 				"localpart": localpart,
 				"room_id":   read.RoomID,
 				"user_id":   read.UserID,
-			}).WithError(err).Errorf("pushserver clientapi consumer: GetAndSendNotificationData failed")
+			}).WithError(err).Errorf("userapi clientapi consumer: GetAndSendNotificationData failed")
 			return false
 		}
 	}
 
 	return true
-}
-
-// mFullyRead is the account data type for the marker for the event up
-// to which the user has read.
-const mFullyRead = "m.fully_read"
-
-// A fullyReadAccountData is what the m.fully_read account data value
-// contains.
-//
-// TODO: this is duplicated with
-// clientapi/routing/account_data.go. Should probably move to
-// eventutil.
-type fullyReadAccountData struct {
-	EventID string `json:"event_id"`
 }

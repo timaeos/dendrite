@@ -74,8 +74,12 @@ func (s *OutputStreamEventConsumer) Start() error {
 
 func (s *OutputStreamEventConsumer) onMessage(ctx context.Context, msg *nats.Msg) bool {
 	var output types.StreamEvent
+	output.HeaderedEvent = &gomatrixserverlib.HeaderedEvent{}
 	if err := json.Unmarshal(msg.Data, &output); err != nil {
-		log.WithError(err).Errorf("pushserver consumer: message parse failure")
+		log.WithError(err).Errorf("userapi consumer: message parse failure")
+		return true
+	}
+	if output.HeaderedEvent.Event == nil {
 		return true
 	}
 
@@ -86,7 +90,7 @@ func (s *OutputStreamEventConsumer) onMessage(ctx context.Context, msg *nats.Msg
 	if err := s.processMessage(ctx, output.HeaderedEvent, int64(output.StreamPosition)); err != nil {
 		log.WithFields(log.Fields{
 			"event_id": output.HeaderedEvent.EventID(),
-		}).WithError(err).Errorf("pushserver consumer: process room event failure")
+		}).WithError(err).Errorf("userapi consumer: process room event failure")
 	}
 
 	return true
