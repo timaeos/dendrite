@@ -603,7 +603,6 @@ Can add global push rule after an existing rule
 Can delete a push rule
 Can disable a push rule
 Adding the same push rule twice is idempotent
-Messages that notify from another user increment notification_count
 Can change the actions of default rules
 Can change the actions of a user specified rule
 Adding a push rule wakes up an incremental /sync
@@ -642,7 +641,6 @@ Test that rejected pushers are removed.
 Notifications can be viewed with GET /notifications
 Trying to add push rule with no scope fails with 400
 Trying to add push rule with invalid scope fails with 400
-Messages that highlight from another user increment unread highlight count
 Forward extremities remain so even after the next events are populated as outliers
 If a device list update goes missing, the server resyncs on the next one
 uploading self-signing key notifies over federation
@@ -662,4 +660,4 @@ registration accepts non-ascii passwords
 registration with inhibit_login inhibits login
 The operation must be consistent through an interactive authentication session
 Multiple calls to /sync should not cause 500 errors
-
+/context/ with lazy_load_members filter works
