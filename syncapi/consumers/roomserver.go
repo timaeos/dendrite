@@ -31,7 +31,6 @@ import (
 	"github.com/matrix-org/dendrite/syncapi/types"
 	"github.com/matrix-org/gomatrixserverlib"
 	"github.com/nats-io/nats.go"
-	"github.com/sirupsen/logrus"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -204,8 +203,6 @@ func (s *OutputRoomEventConsumer) onNewRoomEvent(
 		sentry.CaptureException(err)
 		return err
 	}
-
-	logrus.Warnf("Sent PDU position %d", pduPos)
 
 	if pduPos, err = s.notifyJoinedPeeks(ctx, ev, pduPos); err != nil {
 		log.WithError(err).Errorf("Failed to notifyJoinedPeeks for PDU pos %d", pduPos)

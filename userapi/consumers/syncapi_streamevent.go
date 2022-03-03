@@ -80,6 +80,7 @@ func (s *OutputStreamEventConsumer) onMessage(ctx context.Context, msg *nats.Msg
 		return true
 	}
 	if output.Event.Event == nil {
+		log.Errorf("userapi consumer: expected event")
 		return true
 	}
 
@@ -99,10 +100,6 @@ func (s *OutputStreamEventConsumer) onMessage(ctx context.Context, msg *nats.Msg
 }
 
 func (s *OutputStreamEventConsumer) processMessage(ctx context.Context, event *gomatrixserverlib.HeaderedEvent, pos int64) error {
-	log.WithFields(log.Fields{
-		"event_type": event.Type(),
-	}).Tracef("Received event from sync API: %#v", event)
-
 	members, roomSize, err := s.localRoomMembers(ctx, event.RoomID())
 	if err != nil {
 		return fmt.Errorf("s.localRoomMembers: %w", err)
@@ -546,12 +543,13 @@ func (s *OutputStreamEventConsumer) notifyHTTP(ctx context.Context, event *gomat
 		}
 	}
 
-	logger.Debugf("Notifying HTTP push gateway")
+	logger.Debugf("Notifying push gateway %s", url)
 	var res pushgateway.NotifyResponse
 	if err := s.pgClient.Notify(ctx, url, &req, &res); err != nil {
+		logger.WithError(err).Errorf("Failed to notify push gateway %s", url)
 		return nil, err
 	}
-	logger.WithField("num_rejected", len(res.Rejected)).Tracef("HTTP push gateway result")
+	logger.WithField("num_rejected", len(res.Rejected)).Tracef("Push gateway result")
 
 	if len(res.Rejected) == 0 {
 		return nil, nil
