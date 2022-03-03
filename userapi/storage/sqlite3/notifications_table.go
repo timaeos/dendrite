@@ -58,14 +58,10 @@ const insertNotificationSQL = "" +
 	"INSERT INTO userapi_notifications (localpart, room_id, event_id, stream_pos, ts_ms, highlight, notification_json) VALUES ($1, $2, $3, $4, $5, $6, $7)"
 
 const deleteNotificationsUpToSQL = "" +
-	"DELETE FROM userapi_notifications WHERE localpart = $1 AND room_id = $2 AND id <= (" +
-	"SELECT MAX(id) FROM userapi_notifications WHERE localpart = $1 AND room_id = $2 AND event_id = $3" +
-	")"
+	"DELETE FROM userapi_notifications WHERE localpart = $1 AND room_id = $2 AND stream_pos <= $3"
 
 const updateNotificationReadSQL = "" +
-	"UPDATE userapi_notifications SET read = $1 WHERE localpart = $2 AND room_id = $3 AND id <= (" +
-	"SELECT MAX(id) FROM userapi_notifications WHERE localpart = $2 AND room_id = $3 AND event_id = $4" +
-	") AND read <> $1"
+	"UPDATE userapi_notifications SET read = $1 WHERE localpart = $2 AND room_id = $3 AND stream_pos <= $4 AND read <> $1"
 
 const selectNotificationSQL = "" +
 	"SELECT id, room_id, ts_ms, read, notification_json FROM userapi_notifications WHERE localpart = $1 AND id > $2 AND (" +
