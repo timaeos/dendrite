@@ -15,7 +15,6 @@ import (
 	"github.com/matrix-org/dendrite/userapi/util"
 	"github.com/matrix-org/gomatrixserverlib"
 	"github.com/nats-io/nats.go"
-	"github.com/sirupsen/logrus"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -71,8 +70,7 @@ func (s *OutputReadUpdateConsumer) onMessage(ctx context.Context, msg *nats.Msg)
 		log.WithError(err).Error("userapi clientapi consumer: message parse failure")
 		return true
 	}
-	logrus.Warnf("Received read update: %+v", read)
-	if read.FullyRead == 0 {
+	if read.FullyRead == 0 && read.Read == 0 {
 		return true
 	}
 
@@ -81,56 +79,56 @@ func (s *OutputReadUpdateConsumer) onMessage(ctx context.Context, msg *nats.Msg)
 
 	localpart, domain, err := gomatrixserverlib.SplitID('@', userID)
 	if err != nil {
-		log.WithFields(log.Fields{
-			"user_id": userID,
-			"room_id": roomID,
-		}).WithError(err).Error("userapi clientapi consumer: SplitID failure")
+		log.WithError(err).Error("userapi clientapi consumer: SplitID failure")
 		return true
 	}
-
 	if domain != s.ServerName {
-		log.WithFields(log.Fields{
-			"user_id": userID,
-			"room_id": roomID,
-		}).Error("userapi clientapi consumer: not a local user")
+		log.Error("userapi clientapi consumer: not a local user")
 		return true
 	}
 
-	log.WithFields(log.Fields{
-		"localpart": localpart,
-		"room_id":   roomID,
-	}).Tracef("Received read update from sync API: %#v", read)
+	log := log.WithFields(log.Fields{
+		"room_id": roomID,
+		"user_id": userID,
+	})
+	log.Tracef("Received read update from sync API: %#v", read)
 
-	// TODO: we cannot know if this EventID caused a notification, so
-	// we should first resolve it and find the closest earlier
-	// notification.
-	deleted, err := s.db.DeleteNotificationsUpTo(ctx, localpart, roomID, int64(read.FullyRead))
-	if err != nil {
-		log.WithFields(log.Fields{
-			"localpart": localpart,
-			"room_id":   read.RoomID,
-			"user_id":   read.UserID,
-		}).WithError(err).Errorf("userapi clientapi consumer: DeleteNotificationsUpTo failed")
-		return false
-	}
-
-	if deleted {
-		if err := util.NotifyUserCountsAsync(ctx, s.pgClient, localpart, s.db); err != nil {
-			log.WithFields(log.Fields{
-				"localpart": localpart,
-				"room_id":   read.RoomID,
-				"user_id":   read.UserID,
-			}).WithError(err).Error("userapi clientapi consumer: NotifyUserCounts failed")
+	if read.Read > 0 {
+		updated, err := s.db.SetNotificationsRead(ctx, localpart, roomID, int64(read.Read), true)
+		if err != nil {
+			log.WithError(err).Error("userapi EDU consumer")
 			return false
 		}
 
-		if err := s.syncProducer.GetAndSendNotificationData(ctx, userID, read.RoomID); err != nil {
-			log.WithFields(log.Fields{
-				"localpart": localpart,
-				"room_id":   read.RoomID,
-				"user_id":   read.UserID,
-			}).WithError(err).Errorf("userapi clientapi consumer: GetAndSendNotificationData failed")
+		if updated {
+			if err = s.syncProducer.GetAndSendNotificationData(ctx, userID, roomID); err != nil {
+				log.WithError(err).Error("userapi EDU consumer: GetAndSendNotificationData failed")
+				return false
+			}
+			if err = util.NotifyUserCountsAsync(ctx, s.pgClient, localpart, s.db); err != nil {
+				log.WithError(err).Error("userapi EDU consumer: NotifyUserCounts failed")
+				return false
+			}
+		}
+	}
+
+	if read.FullyRead > 0 {
+		deleted, err := s.db.DeleteNotificationsUpTo(ctx, localpart, roomID, int64(read.FullyRead))
+		if err != nil {
+			log.WithError(err).Errorf("userapi clientapi consumer: DeleteNotificationsUpTo failed")
 			return false
+		}
+
+		if deleted {
+			if err := util.NotifyUserCountsAsync(ctx, s.pgClient, localpart, s.db); err != nil {
+				log.WithError(err).Error("userapi clientapi consumer: NotifyUserCounts failed")
+				return false
+			}
+
+			if err := s.syncProducer.GetAndSendNotificationData(ctx, userID, read.RoomID); err != nil {
+				log.WithError(err).Errorf("userapi clientapi consumer: GetAndSendNotificationData failed")
+				return false
+			}
 		}
 	}
 

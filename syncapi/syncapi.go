@@ -125,6 +125,7 @@ func AddPublicRoutes(
 
 	receiptConsumer := consumers.NewOutputReceiptEventConsumer(
 		process, cfg, js, syncDB, notifier, streams.ReceiptStreamProvider,
+		userAPIReadUpdateProducer,
 	)
 	if err = receiptConsumer.Start(); err != nil {
 		logrus.WithError(err).Panicf("failed to start receipts consumer")
