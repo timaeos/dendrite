@@ -142,12 +142,29 @@ func (r *Inputer) processRoomEvent(
 	var missingAuth, missingPrev bool
 	serverRes := &fedapi.QueryJoinedHostServerNamesInRoomResponse{}
 	if !isCreateEvent {
+		// Work out if any of the auth or prev event IDs referenced in the
+		// event are missing. This is the first obvious step to working out
+		// if we need to hit the federation for anything.
 		missingAuthIDs, missingPrevIDs, err := r.DB.MissingAuthPrevEvents(ctx, event)
 		if err != nil {
 			return fmt.Errorf("updater.MissingAuthPrevEvents: %w", err)
 		}
 		missingAuth = len(missingAuthIDs) > 0
 		missingPrev = !input.HasState && len(missingPrevIDs) > 0
+
+		if !missingPrev {
+			// Now check and see if the current room state has the necessary
+			// state to auth this event as well. This would typically be caught
+			// by the soft-fail checks later, but if the member isn't known to
+			// us, we probably want to go and fetch the state to figure out why.
+			currentRoomStateNeeded := gomatrixserverlib.StateNeededForAuth([]*gomatrixserverlib.Event{event})
+			for _, tuple := range currentRoomStateNeeded.Tuples() {
+				if ev, err := r.DB.GetStateEvent(ctx, event.RoomID(), tuple.EventType, tuple.StateKey); err != nil || ev == nil {
+					missingPrev = true
+					break
+				}
+			}
+		}
 	}
 
 	if missingAuth || missingPrev {
