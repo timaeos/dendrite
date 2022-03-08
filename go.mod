@@ -4,8 +4,6 @@ replace github.com/nats-io/nats-server/v2 => github.com/neilalexander/nats-serve
 
 replace github.com/nats-io/nats.go => github.com/neilalexander/nats.go v1.11.1-0.20220104162523-f4ddebe1061c
 
-replace github.com/matrix-org/pinecone => /Volumes/Workspace/pinecone
-
 require (
 	github.com/Arceliar/ironwood v0.0.0-20211125050254-8951369625d0
 	github.com/Arceliar/phony v0.0.0-20210209235338-dde1a8dca979
