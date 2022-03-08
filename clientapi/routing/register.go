@@ -839,10 +839,28 @@ func completeRegistration(
 	}()
 
 	if data, ok := sessions.getParams(sessionID); ok {
-		username = data.Username
-		password = data.Password
-		deviceID = data.DeviceID
-		displayName = data.InitialDisplayName
+		if username == "" {
+			username = data.Username
+		} else if username != data.Username {
+			return util.JSONResponse{
+				Code: http.StatusBadRequest,
+				JSON: jsonerror.InvalidParam("Username has changed during auth flow"),
+			}
+		}
+		if password == "" {
+			password = data.Password
+		} else if password != data.Password {
+			return util.JSONResponse{
+				Code: http.StatusBadRequest,
+				JSON: jsonerror.InvalidParam("Password has changed during auth flow"),
+			}
+		}
+		if deviceID == nil {
+			deviceID = data.DeviceID
+		}
+		if displayName == nil {
+			displayName = data.InitialDisplayName
+		}
 		inhibitLogin = data.InhibitLogin
 	}
 	if username == "" {
