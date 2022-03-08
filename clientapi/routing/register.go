@@ -800,6 +800,7 @@ func checkAndCompleteFlow(
 	cfg *config.ClientAPI,
 	userAPI userapi.UserInternalAPI,
 ) util.JSONResponse {
+	sessions.addParams(sessionID, r)
 	if checkFlowCompleted(flow, cfg.Derived.Registration.Flows) {
 		// This flow was completed, registration can continue
 		return completeRegistration(
@@ -807,7 +808,6 @@ func checkAndCompleteFlow(
 			r.InhibitLogin, r.InitialDisplayName, r.DeviceID, userapi.AccountTypeUser,
 		)
 	}
-	sessions.addParams(sessionID, r)
 	// There are still more stages to complete.
 	// Return the flows and those that have been completed.
 	return util.JSONResponse{
@@ -848,14 +848,14 @@ func completeRegistration(
 	if username == "" {
 		return util.JSONResponse{
 			Code: http.StatusBadRequest,
-			JSON: jsonerror.BadJSON("missing username"),
+			JSON: jsonerror.InvalidUsername("Missing username"),
 		}
 	}
 	// Blank passwords are only allowed by registered application services
 	if password == "" && appserviceID == "" {
 		return util.JSONResponse{
 			Code: http.StatusBadRequest,
-			JSON: jsonerror.BadJSON("missing password"),
+			JSON: jsonerror.MissingArgument("Missing password"),
 		}
 	}
 	var accRes userapi.PerformAccountCreationResponse
@@ -875,7 +875,7 @@ func completeRegistration(
 		}
 		return util.JSONResponse{
 			Code: http.StatusInternalServerError,
-			JSON: jsonerror.Unknown("failed to create account: " + err.Error()),
+			JSON: jsonerror.Unknown("Failed to create account: " + err.Error()),
 		}
 	}
 
