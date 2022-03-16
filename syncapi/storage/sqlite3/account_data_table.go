@@ -49,12 +49,15 @@ const selectAccountDataInRangeSQL = "" +
 const selectMaxAccountDataIDSQL = "" +
 	"SELECT MAX(id) FROM syncapi_account_data_type"
 
+const purgeRoomSQL = "DELETE FROM syncapi_account_data_type WHERE room_id = $1"
+
 type accountDataStatements struct {
 	db                           *sql.DB
 	streamIDStatements           *streamIDStatements
 	insertAccountDataStmt        *sql.Stmt
 	selectMaxAccountDataIDStmt   *sql.Stmt
 	selectAccountDataInRangeStmt *sql.Stmt
+	purgeRoomStmt                *sql.Stmt
 }
 
 func NewSqliteAccountDataTable(db *sql.DB, streamID *streamIDStatements) (tables.AccountData, error) {
@@ -73,6 +76,9 @@ func NewSqliteAccountDataTable(db *sql.DB, streamID *streamIDStatements) (tables
 		return nil, err
 	}
 	if s.selectAccountDataInRangeStmt, err = db.Prepare(selectAccountDataInRangeSQL); err != nil {
+		return nil, err
+	}
+	if s.purgeRoomStmt, err = db.Prepare(purgeRoomSQL); err != nil {
 		return nil, err
 	}
 	return s, nil
@@ -153,4 +159,12 @@ func (s *accountDataStatements) SelectMaxAccountDataID(
 		id = nullableID.Int64
 	}
 	return
+}
+
+func (s *accountDataStatements) PurgeRoom(
+	ctx context.Context, txn *sql.Tx, roomID string,
+) error {
+	stmt := sqlutil.TxStmt(txn, s.purgeRoomStmt)
+	_, err := stmt.ExecContext(ctx, roomID)
+	return err
 }

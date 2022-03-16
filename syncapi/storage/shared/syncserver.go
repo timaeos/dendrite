@@ -1010,3 +1010,40 @@ func (s *Database) SelectContextBeforeEvent(ctx context.Context, id int, roomID 
 func (s *Database) SelectContextAfterEvent(ctx context.Context, id int, roomID string, filter *gomatrixserverlib.RoomEventFilter) (int, []*gomatrixserverlib.HeaderedEvent, error) {
 	return s.OutputEvents.SelectContextAfterEvent(ctx, nil, id, roomID, filter)
 }
+
+// PurgeRoom removes all traces for a given roomID
+func (d *Database) PurgeRoom(ctx context.Context, roomID string) (err error) {
+	return d.Writer.Do(nil, nil, func(txn *sql.Tx) error {
+		if err := d.AccountData.PurgeRoom(ctx, txn, roomID); err != nil {
+			return err
+		}
+		if err := d.BackwardExtremities.DeleteBackwardExtremitiesForRoom(ctx, txn, roomID); err != nil {
+			return err
+		}
+		if err := d.CurrentRoomState.DeleteRoomStateForRoom(ctx, txn, roomID); err != nil {
+			return err
+		}
+		if err := d.Invites.PurgeRoom(ctx, txn, roomID); err != nil {
+			return err
+		}
+		if err := d.Topology.DeleteTopologyForRoom(ctx, txn, roomID); err != nil {
+			return err
+		}
+		if err := d.Memberships.PurgeRoom(ctx, txn, roomID); err != nil {
+			return err
+		}
+		if err := d.NotificationData.PurgeRoom(ctx, txn, roomID); err != nil {
+			return err
+		}
+		if err := d.OutputEvents.DeleteEventsForRoom(ctx, txn, roomID); err != nil {
+			return err
+		}
+		if err := d.Peeks.PurgeRoom(ctx, txn, roomID); err != nil {
+			return err
+		}
+		if err := d.Receipts.PurgeRoom(ctx, txn, roomID); err != nil {
+			return err
+		}
+		return err
+	})
+}

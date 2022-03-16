@@ -30,6 +30,7 @@ type AccountData interface {
 	// SelectAccountDataInRange returns a map of room ID to a list of `dataType`.
 	SelectAccountDataInRange(ctx context.Context, userID string, r types.Range, accountDataEventFilter *gomatrixserverlib.EventFilter) (data map[string][]string, err error)
 	SelectMaxAccountDataID(ctx context.Context, txn *sql.Tx) (id int64, err error)
+	PurgeRoom(ctx context.Context, txn *sql.Tx, roomID string) error
 }
 
 type Invites interface {
@@ -39,6 +40,7 @@ type Invites interface {
 	// for the room.
 	SelectInviteEventsInRange(ctx context.Context, txn *sql.Tx, targetUserID string, r types.Range) (invites map[string]*gomatrixserverlib.HeaderedEvent, retired map[string]*gomatrixserverlib.HeaderedEvent, err error)
 	SelectMaxInviteID(ctx context.Context, txn *sql.Tx) (id int64, err error)
+	PurgeRoom(ctx context.Context, txn *sql.Tx, roomID string) error
 }
 
 type Peeks interface {
@@ -48,6 +50,7 @@ type Peeks interface {
 	SelectPeeksInRange(ctxt context.Context, txn *sql.Tx, userID, deviceID string, r types.Range) (peeks []types.Peek, err error)
 	SelectPeekingDevices(ctxt context.Context) (peekingDevices map[string][]types.PeekingDevice, err error)
 	SelectMaxPeekID(ctx context.Context, txn *sql.Tx) (id int64, err error)
+	PurgeRoom(ctx context.Context, txn *sql.Tx, roomID string) error
 }
 
 type Events interface {
@@ -168,15 +171,18 @@ type Receipts interface {
 	UpsertReceipt(ctx context.Context, txn *sql.Tx, roomId, receiptType, userId, eventId string, timestamp gomatrixserverlib.Timestamp) (pos types.StreamPosition, err error)
 	SelectRoomReceiptsAfter(ctx context.Context, roomIDs []string, streamPos types.StreamPosition) (types.StreamPosition, []eduAPI.OutputReceiptEvent, error)
 	SelectMaxReceiptID(ctx context.Context, txn *sql.Tx) (id int64, err error)
+	PurgeRoom(ctx context.Context, txn *sql.Tx, roomID string) error
 }
 
 type Memberships interface {
 	UpsertMembership(ctx context.Context, txn *sql.Tx, event *gomatrixserverlib.HeaderedEvent, streamPos, topologicalPos types.StreamPosition) error
 	SelectMembership(ctx context.Context, txn *sql.Tx, roomID, userID, memberships []string) (eventID string, streamPos, topologyPos types.StreamPosition, err error)
+	PurgeRoom(ctx context.Context, txn *sql.Tx, roomID string) error
 }
 
 type NotificationData interface {
 	UpsertRoomUnreadCounts(ctx context.Context, userID, roomID string, notificationCount, highlightCount int) (types.StreamPosition, error)
 	SelectUserUnreadCounts(ctx context.Context, userID string, fromExcl, toIncl types.StreamPosition) (map[string]*eventutil.NotificationData, error)
 	SelectMaxID(ctx context.Context) (int64, error)
+	PurgeRoom(ctx context.Context, txn *sql.Tx, roomID string) error
 }

@@ -63,9 +63,12 @@ const selectMembershipSQL = "" +
 	" ORDER BY stream_pos DESC" +
 	" LIMIT 1"
 
+const purgeMembershipForRoomSQL = "DELETE FROM syncapi_memberships WHERE room_id = $1"
+
 type membershipsStatements struct {
-	db                   *sql.DB
-	upsertMembershipStmt *sql.Stmt
+	db                         *sql.DB
+	upsertMembershipStmt       *sql.Stmt
+	purgeMembershipForRoomStmt *sql.Stmt
 }
 
 func NewSqliteMembershipsTable(db *sql.DB) (tables.Memberships, error) {
@@ -77,6 +80,9 @@ func NewSqliteMembershipsTable(db *sql.DB) (tables.Memberships, error) {
 		return nil, err
 	}
 	if s.upsertMembershipStmt, err = db.Prepare(upsertMembershipSQL); err != nil {
+		return nil, err
+	}
+	if s.purgeMembershipForRoomStmt, err = db.Prepare(purgeMembershipForRoomSQL); err != nil {
 		return nil, err
 	}
 	return s, nil
@@ -116,4 +122,12 @@ func (s *membershipsStatements) SelectMembership(
 	}
 	err = sqlutil.TxStmt(txn, stmt).QueryRowContext(ctx, params...).Scan(&eventID, &streamPos, &topologyPos)
 	return
+}
+
+func (s *membershipsStatements) PurgeRoom(
+	ctx context.Context, txn *sql.Tx, roomID string,
+) error {
+	stmt := sqlutil.TxStmt(txn, s.purgeMembershipForRoomStmt)
+	_, err := stmt.ExecContext(ctx, roomID)
+	return err
 }

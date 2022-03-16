@@ -35,13 +35,15 @@ func NewPostgresNotificationDataTable(db *sql.DB) (tables.NotificationData, erro
 		{&r.upsertRoomUnreadCounts, upsertRoomUnreadNotificationCountsSQL},
 		{&r.selectUserUnreadCounts, selectUserUnreadNotificationCountsSQL},
 		{&r.selectMaxID, selectMaxNotificationIDSQL},
+		{&r.purgeNotificationForRoom, purgeNotificationDataSQL},
 	}.Prepare(db)
 }
 
 type notificationDataStatements struct {
-	upsertRoomUnreadCounts *sql.Stmt
-	selectUserUnreadCounts *sql.Stmt
-	selectMaxID            *sql.Stmt
+	upsertRoomUnreadCounts   *sql.Stmt
+	selectUserUnreadCounts   *sql.Stmt
+	selectMaxID              *sql.Stmt
+	purgeNotificationForRoom *sql.Stmt
 }
 
 const notificationDataSchema = `
@@ -69,6 +71,8 @@ const selectUserUnreadNotificationCountsSQL = `SELECT
     id BETWEEN $2 + 1 AND $3`
 
 const selectMaxNotificationIDSQL = `SELECT CASE COUNT(*) WHEN 0 THEN 0 ELSE MAX(id) END FROM syncapi_notification_data`
+
+const purgeNotificationDataSQL = "DELETE FROM syncapi_notification_data WHERE room_id = $1"
 
 func (r *notificationDataStatements) UpsertRoomUnreadCounts(ctx context.Context, userID, roomID string, notificationCount, highlightCount int) (pos types.StreamPosition, err error) {
 	err = r.upsertRoomUnreadCounts.QueryRowContext(ctx, userID, roomID, notificationCount, highlightCount).Scan(&pos)
@@ -105,4 +109,12 @@ func (r *notificationDataStatements) SelectMaxID(ctx context.Context) (int64, er
 	var id int64
 	err := r.selectMaxID.QueryRowContext(ctx).Scan(&id)
 	return id, err
+}
+
+func (s *notificationDataStatements) PurgeRoom(
+	ctx context.Context, txn *sql.Tx, roomID string,
+) error {
+	stmt := sqlutil.TxStmt(txn, s.purgeNotificationForRoom)
+	_, err := stmt.ExecContext(ctx, roomID)
+	return err
 }

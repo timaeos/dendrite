@@ -36,17 +36,19 @@ import (
 
 // OutputRoomEventConsumer consumes events that originated in the room server.
 type OutputRoomEventConsumer struct {
-	ctx          context.Context
-	cfg          *config.SyncAPI
-	rsAPI        api.RoomserverInternalAPI
-	jetstream    nats.JetStreamContext
-	durable      string
-	topic        string
-	db           storage.Database
-	pduStream    types.StreamProvider
-	inviteStream types.StreamProvider
-	notifier     *notifier.Notifier
-	producer     *producers.UserAPIStreamEventProducer
+	ctx           context.Context
+	cfg           *config.SyncAPI
+	rsAPI         api.RoomserverInternalAPI
+	jetstream     nats.JetStreamContext
+	durable       string
+	durableForget string
+	topic         string
+	topicForget   string
+	db            storage.Database
+	pduStream     types.StreamProvider
+	inviteStream  types.StreamProvider
+	notifier      *notifier.Notifier
+	producer      *producers.UserAPIStreamEventProducer
 }
 
 // NewOutputRoomEventConsumer creates a new OutputRoomEventConsumer. Call Start() to begin consuming from room servers.
@@ -62,22 +64,31 @@ func NewOutputRoomEventConsumer(
 	producer *producers.UserAPIStreamEventProducer,
 ) *OutputRoomEventConsumer {
 	return &OutputRoomEventConsumer{
-		ctx:          process.Context(),
-		cfg:          cfg,
-		jetstream:    js,
-		topic:        cfg.Matrix.JetStream.TopicFor(jetstream.OutputRoomEvent),
-		durable:      cfg.Matrix.JetStream.Durable("SyncAPIRoomServerConsumer"),
-		db:           store,
-		notifier:     notifier,
-		pduStream:    pduStream,
-		inviteStream: inviteStream,
-		rsAPI:        rsAPI,
-		producer:     producer,
+		ctx:           process.Context(),
+		cfg:           cfg,
+		jetstream:     js,
+		topic:         cfg.Matrix.JetStream.TopicFor(jetstream.OutputRoomEvent),
+		topicForget:   cfg.Matrix.JetStream.TopicFor(jetstream.InputRoomForget),
+		durable:       cfg.Matrix.JetStream.Durable("SyncAPIRoomServerConsumer"),
+		durableForget: cfg.Matrix.JetStream.Durable("SyncAPIForgetRoomConsumer"),
+		db:            store,
+		notifier:      notifier,
+		pduStream:     pduStream,
+		inviteStream:  inviteStream,
+		rsAPI:         rsAPI,
+		producer:      producer,
 	}
 }
 
 // Start consuming from room servers
 func (s *OutputRoomEventConsumer) Start() error {
+	err := jetstream.JetStreamConsumer(
+		s.ctx, s.jetstream, s.topicForget, s.durableForget, s.onForgetRoom,
+		nats.DeliverAll(), nats.ManualAck(),
+	)
+	if err != nil {
+		return err
+	}
 	return jetstream.JetStreamConsumer(
 		s.ctx, s.jetstream, s.topic, s.durable, s.onMessage,
 		nats.DeliverAll(), nats.ManualAck(),
@@ -132,6 +143,19 @@ func (s *OutputRoomEventConsumer) onMessage(ctx context.Context, msg *nats.Msg) 
 		return false
 	}
 
+	return true
+}
+
+func (s *OutputRoomEventConsumer) onForgetRoom(ctx context.Context, msg *nats.Msg) bool {
+	roomID := msg.Header.Get(jetstream.RoomID)
+	if roomID == "" {
+		return true
+	}
+	if err := s.db.PurgeRoom(ctx, roomID); err != nil {
+		log.WithError(err).Error("syncapi: unable to purge room")
+		return true
+	}
+	log.WithField("roomID", roomID).Debug("syncapi: Successfully purged room")
 	return true
 }
 

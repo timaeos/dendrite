@@ -57,6 +57,8 @@ const selectInviteEventsInRangeSQL = "" +
 const selectMaxInviteIDSQL = "" +
 	"SELECT MAX(id) FROM syncapi_invite_events"
 
+const purgeInviteForRoomSQL = "DELETE FROM syncapi_invite_events WHERE room_id = $1"
+
 type inviteEventsStatements struct {
 	db                            *sql.DB
 	streamIDStatements            *streamIDStatements
@@ -64,6 +66,7 @@ type inviteEventsStatements struct {
 	selectInviteEventsInRangeStmt *sql.Stmt
 	deleteInviteEventStmt         *sql.Stmt
 	selectMaxInviteIDStmt         *sql.Stmt
+	purgeInviteForRoomStmt        *sql.Stmt
 }
 
 func NewSqliteInvitesTable(db *sql.DB, streamID *streamIDStatements) (tables.Invites, error) {
@@ -85,6 +88,9 @@ func NewSqliteInvitesTable(db *sql.DB, streamID *streamIDStatements) (tables.Inv
 		return nil, err
 	}
 	if s.selectMaxInviteIDStmt, err = db.Prepare(selectMaxInviteIDSQL); err != nil {
+		return nil, err
+	}
+	if s.purgeInviteForRoomStmt, err = db.Prepare(purgeInviteForRoomSQL); err != nil {
 		return nil, err
 	}
 	return s, nil
@@ -182,4 +188,12 @@ func (s *inviteEventsStatements) SelectMaxInviteID(
 		id = nullableID.Int64
 	}
 	return
+}
+
+func (s *inviteEventsStatements) PurgeRoom(
+	ctx context.Context, txn *sql.Tx, roomID string,
+) error {
+	stmt := sqlutil.TxStmt(txn, s.purgeInviteForRoomStmt)
+	_, err := stmt.ExecContext(ctx, roomID)
+	return err
 }
