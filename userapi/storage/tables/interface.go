@@ -28,6 +28,7 @@ type AccountDataTable interface {
 	InsertAccountData(ctx context.Context, txn *sql.Tx, localpart, roomID, dataType string, content json.RawMessage) error
 	SelectAccountData(ctx context.Context, localpart string) (map[string]json.RawMessage, map[string]map[string]json.RawMessage, error)
 	SelectAccountDataByType(ctx context.Context, localpart, roomID, dataType string) (data json.RawMessage, err error)
+	PurgeRoom(ctx context.Context, txn *sql.Tx, roomID string) error
 }
 
 type AccountsTable interface {
@@ -110,6 +111,7 @@ type NotificationTable interface {
 	Select(ctx context.Context, txn *sql.Tx, localpart string, fromID int64, limit int, filter NotificationFilter) ([]*api.Notification, int64, error)
 	SelectCount(ctx context.Context, txn *sql.Tx, localpart string, filter NotificationFilter) (int64, error)
 	SelectRoomCounts(ctx context.Context, txn *sql.Tx, localpart, roomID string) (total int64, highlight int64, _ error)
+	PurgeRoom(ctx context.Context, txn *sql.Tx, roomID string) error
 }
 
 type NotificationFilter uint32

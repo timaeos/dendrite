@@ -103,6 +103,8 @@ type Database interface {
 	GetPushers(ctx context.Context, localpart string) ([]api.Pusher, error)
 	RemovePusher(ctx context.Context, appid, pushkey, localpart string) error
 	RemovePushers(ctx context.Context, appid, pushkey string) error
+
+	PurgeRoom(ctx context.Context, roomID string) error
 }
 
 // Err3PIDInUse is the error returned when trying to save an association involving

@@ -765,3 +765,15 @@ func (d *Database) RemovePushers(
 		return d.Pushers.DeletePushers(ctx, txn, appid, pushkey)
 	})
 }
+
+func (d *Database) PurgeRoom(ctx context.Context, roomID string) error {
+	return d.Writer.Do(nil, nil, func(txn *sql.Tx) error {
+		if err := d.AccountDatas.PurgeRoom(ctx, txn, roomID); err != nil {
+			return err
+		}
+		if err := d.Notifications.PurgeRoom(ctx, txn, roomID); err != nil {
+			return err
+		}
+		return nil
+	})
+}

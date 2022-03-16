@@ -36,6 +36,7 @@ type notificationsStatements struct {
 	selectCountStmt        *sql.Stmt
 	selectRoomCountsStmt   *sql.Stmt
 	cleanNotificationsStmt *sql.Stmt
+	purgeNotificationsStmt *sql.Stmt
 }
 
 const notificationSchema = `
@@ -83,6 +84,8 @@ const cleanNotificationsSQL = "" +
 	"DELETE FROM userapi_notifications WHERE" +
 	" (highlight = FALSE AND ts_ms < $1) OR (highlight = TRUE AND ts_ms < $2)"
 
+const purgeNotificationsSQL = "DELETE FROM userapi_notifications WHERE room_id = $1"
+
 func NewPostgresNotificationTable(db *sql.DB) (tables.NotificationTable, error) {
 	s := &notificationsStatements{}
 	_, err := db.Exec(notificationSchema)
@@ -97,6 +100,7 @@ func NewPostgresNotificationTable(db *sql.DB) (tables.NotificationTable, error) 
 		{&s.selectCountStmt, selectNotificationCountSQL},
 		{&s.selectRoomCountsStmt, selectRoomNotificationCountsSQL},
 		{&s.cleanNotificationsStmt, cleanNotificationsSQL},
+		{&s.purgeNotificationsStmt, purgeNotificationsSQL},
 	}.Prepare(db)
 }
 
@@ -232,4 +236,12 @@ func (s *notificationsStatements) SelectRoomCounts(ctx context.Context, txn *sql
 		return total, highlight, nil
 	}
 	return 0, 0, rows.Err()
+}
+
+func (s *notificationsStatements) PurgeRoom(
+	ctx context.Context, txn *sql.Tx, roomID string,
+) error {
+	stmt := sqlutil.TxStmt(txn, s.purgeNotificationsStmt)
+	_, err := stmt.ExecContext(ctx, roomID)
+	return err
 }
