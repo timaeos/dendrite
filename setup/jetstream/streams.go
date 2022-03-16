@@ -22,6 +22,7 @@ var (
 	OutputReceiptEvent      = "OutputReceiptEvent"
 	OutputStreamEvent       = "OutputStreamEvent"
 	OutputReadUpdate        = "OutputReadUpdate"
+	InputRoomForget         = "InputRoomForget"
 )
 
 var streams = []*nats.StreamConfig{
@@ -73,6 +74,11 @@ var streams = []*nats.StreamConfig{
 	},
 	{
 		Name:      OutputReadUpdate,
+		Retention: nats.InterestPolicy,
+		Storage:   nats.FileStorage,
+	},
+	{
+		Name:      InputRoomForget,
 		Retention: nats.InterestPolicy,
 		Storage:   nats.FileStorage,
 	},
