@@ -14,6 +14,7 @@ import (
 	"github.com/matrix-org/dendrite/roomserver/internal/query"
 	"github.com/matrix-org/dendrite/roomserver/storage"
 	"github.com/matrix-org/dendrite/setup/config"
+	"github.com/matrix-org/dendrite/setup/jetstream"
 	"github.com/matrix-org/dendrite/setup/process"
 	userapi "github.com/matrix-org/dendrite/userapi/api"
 	"github.com/matrix-org/gomatrixserverlib"
@@ -152,7 +153,9 @@ func (r *RoomserverInternalAPI) SetFederationAPI(fsAPI fsAPI.FederationInternalA
 		PreferServers: r.PerspectiveServerNames,
 	}
 	r.Forgetter = &perform.Forgetter{
-		DB: r.DB,
+		DB:        r.DB,
+		JetStream: r.JetStream,
+		Subject:   r.Cfg.Matrix.JetStream.TopicFor(jetstream.InputRoomForget),
 	}
 
 	if err := r.Inputer.Start(); err != nil {

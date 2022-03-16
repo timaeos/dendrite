@@ -19,10 +19,15 @@ import (
 
 	"github.com/matrix-org/dendrite/roomserver/api"
 	"github.com/matrix-org/dendrite/roomserver/storage"
+	"github.com/matrix-org/dendrite/setup/jetstream"
+	"github.com/nats-io/nats.go"
+	"github.com/sirupsen/logrus"
 )
 
 type Forgetter struct {
-	DB storage.Database
+	DB        storage.Database
+	JetStream nats.JetStreamContext
+	Subject   string
 }
 
 // PerformForget implements api.RoomServerQueryAPI
@@ -31,5 +36,30 @@ func (f *Forgetter) PerformForget(
 	request *api.PerformForgetRequest,
 	response *api.PerformForgetResponse,
 ) error {
-	return f.DB.ForgetRoom(ctx, request.UserID, request.RoomID, true)
+	err := f.DB.ForgetRoom(ctx, request.UserID, request.RoomID, true)
+	if err != nil {
+		return err
+	}
+	// Check if this server is still in the room, if not, purge it from the database
+	info, err := f.DB.RoomInfo(ctx, request.RoomID)
+	if err != nil {
+		return err
+	}
+	inRoom, err := f.DB.GetLocalServerInRoom(ctx, info.RoomNID)
+	if err != nil {
+		return err
+	}
+	if !inRoom {
+		logrus.Debugf("Sending purge room message, last local member left")
+		msg := &nats.Msg{
+			Subject: f.Subject,
+		}
+		msg.Header = make(nats.Header)
+		msg.Header.Set(jetstream.RoomID, request.RoomID)
+		_, err := f.JetStream.PublishMsg(msg)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
