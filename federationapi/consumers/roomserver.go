@@ -34,14 +34,16 @@ import (
 
 // OutputRoomEventConsumer consumes events that originated in the room server.
 type OutputRoomEventConsumer struct {
-	ctx       context.Context
-	cfg       *config.FederationAPI
-	rsAPI     api.RoomserverInternalAPI
-	jetstream nats.JetStreamContext
-	durable   string
-	db        storage.Database
-	queues    *queue.OutgoingQueues
-	topic     string
+	ctx           context.Context
+	cfg           *config.FederationAPI
+	rsAPI         api.RoomserverInternalAPI
+	jetstream     nats.JetStreamContext
+	durable       string
+	durableForget string
+	db            storage.Database
+	queues        *queue.OutgoingQueues
+	topic         string
+	topicForget   string
 }
 
 // NewOutputRoomEventConsumer creates a new OutputRoomEventConsumer. Call Start() to begin consuming from room servers.
@@ -54,19 +56,28 @@ func NewOutputRoomEventConsumer(
 	rsAPI api.RoomserverInternalAPI,
 ) *OutputRoomEventConsumer {
 	return &OutputRoomEventConsumer{
-		ctx:       process.Context(),
-		cfg:       cfg,
-		jetstream: js,
-		db:        store,
-		queues:    queues,
-		rsAPI:     rsAPI,
-		durable:   cfg.Matrix.JetStream.Durable("FederationAPIRoomServerConsumer"),
-		topic:     cfg.Matrix.JetStream.TopicFor(jetstream.OutputRoomEvent),
+		ctx:           process.Context(),
+		cfg:           cfg,
+		jetstream:     js,
+		db:            store,
+		queues:        queues,
+		rsAPI:         rsAPI,
+		durable:       cfg.Matrix.JetStream.Durable("FederationAPIRoomServerConsumer"),
+		topic:         cfg.Matrix.JetStream.TopicFor(jetstream.OutputRoomEvent),
+		durableForget: cfg.Matrix.JetStream.Durable("FederationAPIForgetRoomConsumer"),
+		topicForget:   cfg.Matrix.JetStream.TopicFor(jetstream.InputRoomForget),
 	}
 }
 
 // Start consuming from room servers
 func (s *OutputRoomEventConsumer) Start() error {
+	err := jetstream.JetStreamConsumer(
+		s.ctx, s.jetstream, s.topicForget, s.durableForget, s.onForgetRoom,
+		nats.DeliverAll(), nats.ManualAck(),
+	)
+	if err != nil {
+		return err
+	}
 	return jetstream.JetStreamConsumer(
 		s.ctx, s.jetstream, s.topic, s.durable, s.onMessage,
 		nats.DeliverAll(), nats.ManualAck(),
@@ -123,6 +134,19 @@ func (s *OutputRoomEventConsumer) onMessage(ctx context.Context, msg *nats.Msg) 
 		)
 	}
 
+	return true
+}
+
+func (s *OutputRoomEventConsumer) onForgetRoom(ctx context.Context, msg *nats.Msg) bool {
+	roomID := msg.Header.Get(jetstream.RoomID)
+	if roomID == "" {
+		return true
+	}
+	if err := s.db.PurgeRoom(ctx, roomID); err != nil {
+		log.WithError(err).Error("federationapi: unable to purge room")
+		return true
+	}
+	log.WithField("roomID", roomID).Debug("federationapi: Successfully purged room")
 	return true
 }
 

@@ -257,3 +257,18 @@ func (d *Database) GetNotaryKeys(
 	})
 	return sks, err
 }
+
+func (d *Database) PurgeRoom(ctx context.Context, roomID string) error {
+	return d.Writer.Do(d.DB, nil, func(txn *sql.Tx) error {
+		if err := d.FederationInboundPeeks.DeleteInboundPeeks(ctx, txn, roomID); err != nil {
+			return err
+		}
+		if err := d.FederationOutboundPeeks.DeleteOutboundPeeks(ctx, txn, roomID); err != nil {
+			return err
+		}
+		if err := d.FederationJoinedHosts.DeleteJoinedHostsForRoom(ctx, txn, roomID); err != nil {
+			return err
+		}
+		return nil
+	})
+}
