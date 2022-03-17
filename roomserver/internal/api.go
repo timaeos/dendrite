@@ -157,9 +157,10 @@ func (r *RoomserverInternalAPI) SetFederationAPI(fsAPI fsAPI.FederationInternalA
 		PreferServers: r.PerspectiveServerNames,
 	}
 	r.Forgetter = &perform.Forgetter{
-		DB:        r.DB,
-		JetStream: r.JetStream,
-		Subject:   r.Cfg.Matrix.JetStream.TopicFor(jetstream.InputRoomForget),
+		DB:                r.DB,
+		JetStream:         r.JetStream,
+		Subject:           r.Cfg.Matrix.JetStream.TopicFor(jetstream.InputRoomForget),
+		PurgeOnLastMember: r.PurgeOnLastMember,
 	}
 
 	if err := r.Inputer.Start(); err != nil {
