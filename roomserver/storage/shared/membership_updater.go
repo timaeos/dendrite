@@ -92,7 +92,7 @@ func (u *MembershipUpdater) IsKnock() bool {
 }
 
 // SetToInvite implements types.MembershipUpdater
-func (u *MembershipUpdater) SetToInvite(event gomatrixserverlib.Event) (bool, error) {
+func (u *MembershipUpdater) SetToInvite(event *gomatrixserverlib.Event) (bool, error) {
 	var inserted bool
 	err := u.d.Writer.Do(u.d.DB, u.txn, func(txn *sql.Tx) error {
 		senderUserNID, err := u.d.assignStateKeyNID(u.ctx, u.txn, event.Sender())

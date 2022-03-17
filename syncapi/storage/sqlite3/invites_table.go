@@ -19,6 +19,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"fmt"
 
 	"github.com/matrix-org/dendrite/internal"
 	"github.com/matrix-org/dendrite/internal/sqlutil"
@@ -47,7 +48,7 @@ const insertInviteEventSQL = "" +
 	" VALUES ($1, $2, $3, $4, $5, false)"
 
 const deleteInviteEventSQL = "" +
-	"UPDATE syncapi_invite_events SET deleted=true, id=$1 WHERE event_id = $2"
+	"UPDATE syncapi_invite_events SET deleted=true, id=$1 WHERE event_id = $2 AND deleted=false"
 
 const selectInviteEventsInRangeSQL = "" +
 	"SELECT room_id, headered_event_json, deleted FROM syncapi_invite_events" +
@@ -125,6 +126,9 @@ func (s *inviteEventsStatements) DeleteInviteEvent(
 	}
 	stmt := sqlutil.TxStmt(txn, s.deleteInviteEventStmt)
 	_, err = stmt.ExecContext(ctx, streamPos, inviteEventID)
+	if err != nil {
+		return 0, fmt.Errorf("stmt.ExecContext: %w (stream pos %d, invite event ID %s)", err, streamPos, inviteEventID)
+	}
 	return streamPos, err
 }
 
