@@ -19,7 +19,6 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
-	"fmt"
 
 	"github.com/matrix-org/dendrite/internal"
 	"github.com/matrix-org/dendrite/internal/sqlutil"
@@ -126,9 +125,6 @@ func (s *inviteEventsStatements) DeleteInviteEvent(
 	}
 	stmt := sqlutil.TxStmt(txn, s.deleteInviteEventStmt)
 	_, err = stmt.ExecContext(ctx, streamPos, inviteEventID)
-	if err != nil {
-		return 0, fmt.Errorf("stmt.ExecContext: %w (stream pos %d, invite event ID %s)", err, streamPos, inviteEventID)
-	}
 	return streamPos, err
 }
 
