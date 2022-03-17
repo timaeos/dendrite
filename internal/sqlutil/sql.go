@@ -153,6 +153,22 @@ func RunLimitedVariablesQuery(ctx context.Context, query string, qp QueryProvide
 	return nil
 }
 
+// RunLimitedVariablesExec split up a query with more variables than the used database can handle in multiple queries.
+func RunLimitedVariablesExec(ctx context.Context, txn *sql.Tx, query string, variables []interface{}, limit uint) error {
+	var start int
+	for start < len(variables) {
+		n := minOfInts(len(variables)-start, int(limit))
+		nextQuery := strings.Replace(query, "($1)", QueryVariadic(n), 1)
+		_, err := txn.ExecContext(ctx, nextQuery, variables[start:start+n]...)
+		if err != nil {
+			util.GetLogger(ctx).WithError(err).Error("ExecContext returned an error")
+			return err
+		}
+		start = start + n
+	}
+	return nil
+}
+
 // StatementList is a list of SQL statements to prepare and a pointer to where to store the resulting prepared statement.
 type StatementList []struct {
 	Statement **sql.Stmt
