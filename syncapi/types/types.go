@@ -322,23 +322,23 @@ type Response struct {
 	NextBatch   StreamingToken `json:"next_batch"`
 	AccountData struct {
 		Events []gomatrixserverlib.ClientEvent `json:"events,omitempty"`
-	} `json:"account_data"`
+	} `json:"account_data,omitempty"`
 	Presence struct {
 		Events []gomatrixserverlib.ClientEvent `json:"events,omitempty"`
-	} `json:"presence"`
+	} `json:"presence,omitempty"`
 	Rooms struct {
-		Join   map[string]JoinResponse   `json:"join"`
-		Peek   map[string]JoinResponse   `json:"peek"`
-		Invite map[string]InviteResponse `json:"invite"`
-		Leave  map[string]LeaveResponse  `json:"leave"`
-	} `json:"rooms"`
+		Join   map[string]*JoinResponse   `json:"join,omitempty"`
+		Peek   map[string]*JoinResponse   `json:"peek,omitempty"`
+		Invite map[string]*InviteResponse `json:"invite,omitempty"`
+		Leave  map[string]*LeaveResponse  `json:"leave,omitempty"`
+	} `json:"rooms,omitempty"`
 	ToDevice struct {
-		Events []gomatrixserverlib.SendToDeviceEvent `json:"events"`
-	} `json:"to_device"`
+		Events []gomatrixserverlib.SendToDeviceEvent `json:"events,omitempty"`
+	} `json:"to_device,omitempty"`
 	DeviceLists struct {
 		Changed []string `json:"changed,omitempty"`
 		Left    []string `json:"left,omitempty"`
-	} `json:"device_lists"`
+	} `json:"device_lists,omitempty"`
 	DeviceListsOTKCount map[string]int `json:"device_one_time_keys_count,omitempty"`
 }
 
@@ -347,10 +347,10 @@ func NewResponse() *Response {
 	res := Response{}
 	// Pre-initialise the maps. Synapse will return {} even if there are no rooms under a specific section,
 	// so let's do the same thing. Bonus: this means we can't get dreaded 'assignment to entry in nil map' errors.
-	res.Rooms.Join = map[string]JoinResponse{}
-	res.Rooms.Peek = map[string]JoinResponse{}
-	res.Rooms.Invite = map[string]InviteResponse{}
-	res.Rooms.Leave = map[string]LeaveResponse{}
+	res.Rooms.Join = map[string]*JoinResponse{}
+	res.Rooms.Peek = map[string]*JoinResponse{}
+	res.Rooms.Invite = map[string]*InviteResponse{}
+	res.Rooms.Leave = map[string]*LeaveResponse{}
 
 	// Also pre-intialise empty slices or else we'll insert 'null' instead of '[]' for the value.
 	// TODO: We really shouldn't have to do all this to coerce encoding/json to Do The Right Thing. We should

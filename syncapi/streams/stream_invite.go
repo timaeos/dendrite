@@ -55,7 +55,7 @@ func (p *InviteStreamProvider) IncrementalSync(
 
 	for roomID, inviteEvent := range invites {
 		ir := types.NewInviteResponse(inviteEvent)
-		req.Response.Rooms.Invite[roomID] = *ir
+		req.Response.Rooms.Invite[roomID] = ir
 	}
 
 	for roomID := range retiredInvites {
@@ -72,7 +72,7 @@ func (p *InviteStreamProvider) IncrementalSync(
 				Type:           "m.room.member",
 				Content:        gomatrixserverlib.RawJSON(`{"membership":"leave"}`),
 			})
-			req.Response.Rooms.Leave[roomID] = *lr
+			req.Response.Rooms.Leave[roomID] = lr
 		}
 	}
 

@@ -107,7 +107,7 @@ func (p *PDUStreamProvider) CompleteSync(
 
 			reqMutex.Lock()
 			defer reqMutex.Unlock()
-			req.Response.Rooms.Join[roomID] = *jr
+			req.Response.Rooms.Join[roomID] = jr
 			req.Rooms[roomID] = gomatrixserverlib.Join
 		})
 	}
@@ -130,7 +130,7 @@ func (p *PDUStreamProvider) CompleteSync(
 				req.Log.WithError(err).Error("p.getJoinResponseForCompleteSync failed")
 				return from
 			}
-			req.Response.Rooms.Peek[peek.RoomID] = *jr
+			req.Response.Rooms.Peek[peek.RoomID] = jr
 		}
 	}
 
@@ -226,7 +226,7 @@ func (p *PDUStreamProvider) addRoomDeltaToResponse(
 		jr.Timeline.Events = gomatrixserverlib.HeaderedToClientEvents(recentEvents, gomatrixserverlib.FormatSync)
 		jr.Timeline.Limited = limited
 		jr.State.Events = gomatrixserverlib.HeaderedToClientEvents(delta.StateEvents, gomatrixserverlib.FormatSync)
-		res.Rooms.Join[delta.RoomID] = *jr
+		res.Rooms.Join[delta.RoomID] = jr
 
 	case gomatrixserverlib.Peek:
 		jr := types.NewJoinResponse()
@@ -234,7 +234,7 @@ func (p *PDUStreamProvider) addRoomDeltaToResponse(
 		jr.Timeline.Events = gomatrixserverlib.HeaderedToClientEvents(recentEvents, gomatrixserverlib.FormatSync)
 		jr.Timeline.Limited = limited
 		jr.State.Events = gomatrixserverlib.HeaderedToClientEvents(delta.StateEvents, gomatrixserverlib.FormatSync)
-		res.Rooms.Peek[delta.RoomID] = *jr
+		res.Rooms.Peek[delta.RoomID] = jr
 
 	case gomatrixserverlib.Leave:
 		fallthrough // transitions to leave are the same as ban
@@ -247,7 +247,7 @@ func (p *PDUStreamProvider) addRoomDeltaToResponse(
 		lr.Timeline.Events = gomatrixserverlib.HeaderedToClientEvents(recentEvents, gomatrixserverlib.FormatSync)
 		lr.Timeline.Limited = false // TODO: if len(events) >= numRecents + 1 and then set limited:true
 		lr.State.Events = gomatrixserverlib.HeaderedToClientEvents(delta.StateEvents, gomatrixserverlib.FormatSync)
-		res.Rooms.Leave[delta.RoomID] = *lr
+		res.Rooms.Leave[delta.RoomID] = lr
 	}
 
 	return nil

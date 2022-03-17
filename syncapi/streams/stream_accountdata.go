@@ -109,18 +109,19 @@ func (p *AccountDataStreamProvider) IncrementalSync(
 				}
 			} else {
 				if roomData, ok := dataRes.RoomAccountData[roomID][dataType]; ok {
-					joinData := *types.NewJoinResponse()
-					if existing, ok := req.Response.Rooms.Join[roomID]; ok {
-						joinData = existing
+					jr := req.Response.Rooms.Join[roomID]
+					if jr == nil {
+						req.Response.Rooms.Join[roomID] = types.NewJoinResponse()
+						jr = req.Response.Rooms.Join[roomID]
 					}
-					joinData.AccountData.Events = append(
-						joinData.AccountData.Events,
+
+					jr.AccountData.Events = append(
+						jr.AccountData.Events,
 						gomatrixserverlib.ClientEvent{
 							Type:    dataType,
 							Content: gomatrixserverlib.RawJSON(roomData),
 						},
 					)
-					req.Response.Rooms.Join[roomID] = joinData
 				}
 			}
 		}
