@@ -46,10 +46,14 @@ const bulkSelectEventJSONSQL = `
 	  ORDER BY event_nid ASC
 `
 
+const purgeEventJSONForRoomSQL = `DELETE FROM roomserver_event_json WHERE event_nid IN (SELECT e.event_nid FROM roomserver_events e 
+WHERE room_nid = $1);`
+
 type eventJSONStatements struct {
-	db                      *sql.DB
-	insertEventJSONStmt     *sql.Stmt
-	bulkSelectEventJSONStmt *sql.Stmt
+	db                        *sql.DB
+	insertEventJSONStmt       *sql.Stmt
+	bulkSelectEventJSONStmt   *sql.Stmt
+	purgeEventJSONForRoomStmt *sql.Stmt
 }
 
 func createEventJSONTable(db *sql.DB) error {
@@ -65,6 +69,7 @@ func prepareEventJSONTable(db *sql.DB) (tables.EventJSON, error) {
 	return s, sqlutil.StatementList{
 		{&s.insertEventJSONStmt, insertEventJSONSQL},
 		{&s.bulkSelectEventJSONStmt, bulkSelectEventJSONSQL},
+		{&s.purgeEventJSONForRoomStmt, purgeEventJSONForRoomSQL},
 	}.Prepare(db)
 }
 
@@ -110,4 +115,12 @@ func (s *eventJSONStatements) BulkSelectEventJSON(
 		result.EventNID = types.EventNID(eventNID)
 	}
 	return results[:i], nil
+}
+
+func (s *eventJSONStatements) PurgeRoom(
+	ctx context.Context, txn *sql.Tx, roomNID types.RoomNID,
+) error {
+	stmt := sqlutil.TxStmt(txn, s.purgeEventJSONForRoomStmt)
+	_, err := stmt.ExecContext(ctx, roomNID)
+	return err
 }

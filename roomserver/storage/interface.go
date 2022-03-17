@@ -166,4 +166,8 @@ type Database interface {
 	GetKnownRooms(ctx context.Context) ([]string, error)
 	// ForgetRoom sets a flag in the membership table, that the user wishes to forget a specific room
 	ForgetRoom(ctx context.Context, userID, roomID string, forget bool) error
+	// PurgeRoom purges a room from the database.
+	PurgeRoom(ctx context.Context, roomID string, info *types.RoomInfo) error
+	// GetRoomForgotten checks if all local member forgot about the room.
+	GetRoomForgotten(ctx context.Context, roomNID types.RoomNID) (bool, error)
 }

@@ -143,6 +143,11 @@ const selectServerInRoomSQL = "" +
 	" JOIN roomserver_event_state_keys ON roomserver_membership.target_nid = roomserver_event_state_keys.event_state_key_nid" +
 	" WHERE membership_nid = $1 AND room_nid = $2 AND event_state_key LIKE '%:' || $3 LIMIT 1"
 
+// similar to selectLocalServerInRoomSQL, checks if there are members who have not yet forgotten about the room
+const selectRoomForgottenSQL = "SELECT room_nid FROM roomserver_membership WHERE target_local = true AND forgotten = false AND room_nid = $1 LIMIT 1"
+
+const purgeMembershipForRoomSQL = "DELETE FROM roomserver_membership WHERE room_nid = $1"
+
 type membershipStatements struct {
 	insertMembershipStmt                            *sql.Stmt
 	selectMembershipForUpdateStmt                   *sql.Stmt
@@ -158,6 +163,8 @@ type membershipStatements struct {
 	updateMembershipForgetRoomStmt                  *sql.Stmt
 	selectLocalServerInRoomStmt                     *sql.Stmt
 	selectServerInRoomStmt                          *sql.Stmt
+	purgeMembershipForRoomStmt                      *sql.Stmt
+	selectRoomForgottenStmt                         *sql.Stmt
 }
 
 func createMembershipTable(db *sql.DB) error {
@@ -183,6 +190,8 @@ func prepareMembershipTable(db *sql.DB) (tables.Membership, error) {
 		{&s.updateMembershipForgetRoomStmt, updateMembershipForgetRoom},
 		{&s.selectLocalServerInRoomStmt, selectLocalServerInRoomSQL},
 		{&s.selectServerInRoomStmt, selectServerInRoomSQL},
+		{&s.purgeMembershipForRoomStmt, purgeMembershipForRoomSQL},
+		{&s.selectRoomForgottenStmt, selectRoomForgottenSQL},
 	}.Prepare(db)
 }
 
@@ -389,4 +398,26 @@ func (s *membershipStatements) SelectServerInRoom(
 		return false, err
 	}
 	return roomNID == nid, nil
+}
+
+func (s *membershipStatements) PurgeRoom(
+	ctx context.Context, txn *sql.Tx, roomNID types.RoomNID,
+) (err error) {
+	stmt := sqlutil.TxStmt(txn, s.purgeMembershipForRoomStmt)
+	_, err = stmt.ExecContext(ctx, roomNID)
+	return
+}
+
+func (s *membershipStatements) SelectRoomForgotten(ctx context.Context, txn *sql.Tx, roomNID types.RoomNID) (bool, error) {
+	var nid types.RoomNID
+	stmt := sqlutil.TxStmt(txn, s.selectRoomForgottenStmt)
+	err := stmt.QueryRowContext(ctx, roomNID).Scan(&nid)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return false, nil
+		}
+		return false, err
+	}
+	forgotten := nid > 0
+	return !forgotten, nil
 }

@@ -16,6 +16,7 @@ type EventJSONPair struct {
 }
 
 type EventJSON interface {
+	RoomNIDPurger
 	// Insert the event JSON. On conflict, replace the event JSON with the new value (for redactions).
 	InsertEventJSON(ctx context.Context, tx *sql.Tx, eventNID types.EventNID, eventJSON []byte) error
 	BulkSelectEventJSON(ctx context.Context, tx *sql.Tx, eventNIDs []types.EventNID) ([]EventJSONPair, error)
@@ -35,6 +36,7 @@ type EventStateKeys interface {
 }
 
 type Events interface {
+	RoomNIDPurger
 	InsertEvent(
 		ctx context.Context, txn *sql.Tx, i types.RoomNID, j types.EventTypeNID, k types.EventStateKeyNID, eventID string,
 		referenceSHA256 []byte, authEventNIDs []types.EventNID, depth int64, isRejected bool,
@@ -65,6 +67,7 @@ type Events interface {
 }
 
 type Rooms interface {
+	RoomNIDPurger
 	InsertRoomNID(ctx context.Context, txn *sql.Tx, roomID string, roomVersion gomatrixserverlib.RoomVersion) (types.RoomNID, error)
 	SelectRoomNID(ctx context.Context, txn *sql.Tx, roomID string) (types.RoomNID, error)
 	SelectLatestEventNIDs(ctx context.Context, txn *sql.Tx, roomNID types.RoomNID) ([]types.EventNID, types.StateSnapshotNID, error)
@@ -78,17 +81,20 @@ type Rooms interface {
 }
 
 type StateSnapshot interface {
+	RoomNIDPurger
 	InsertState(ctx context.Context, txn *sql.Tx, roomNID types.RoomNID, stateBlockNIDs types.StateBlockNIDs) (stateNID types.StateSnapshotNID, err error)
 	BulkSelectStateBlockNIDs(ctx context.Context, txn *sql.Tx, stateNIDs []types.StateSnapshotNID) ([]types.StateBlockNIDList, error)
 }
 
 type StateBlock interface {
+	RoomNIDPurger
 	BulkInsertStateData(ctx context.Context, txn *sql.Tx, entries types.StateEntries) (types.StateBlockNID, error)
 	BulkSelectStateBlockEntries(ctx context.Context, txn *sql.Tx, stateBlockNIDs types.StateBlockNIDs) ([][]types.EventNID, error)
 	//BulkSelectFilteredStateBlockEntries(ctx context.Context, stateBlockNIDs []types.StateBlockNID, stateKeyTuples []types.StateKeyTuple) ([]types.StateEntryList, error)
 }
 
 type RoomAliases interface {
+	RoomIDPurger
 	InsertRoomAlias(ctx context.Context, txn *sql.Tx, alias string, roomID string, creatorUserID string) (err error)
 	SelectRoomIDFromAlias(ctx context.Context, txn *sql.Tx, alias string) (roomID string, err error)
 	SelectAliasesFromRoomID(ctx context.Context, txn *sql.Tx, roomID string) ([]string, error)
@@ -97,6 +103,7 @@ type RoomAliases interface {
 }
 
 type PreviousEvents interface {
+	RoomNIDPurger
 	InsertPreviousEvent(ctx context.Context, txn *sql.Tx, previousEventID string, previousEventReferenceSHA256 []byte, eventNID types.EventNID) error
 	// Check if the event reference exists
 	// Returns sql.ErrNoRows if the event reference doesn't exist.
@@ -104,10 +111,21 @@ type PreviousEvents interface {
 }
 
 type Invites interface {
+	RoomNIDPurger
 	InsertInviteEvent(ctx context.Context, txn *sql.Tx, inviteEventID string, roomNID types.RoomNID, targetUserNID, senderUserNID types.EventStateKeyNID, inviteEventJSON []byte) (bool, error)
 	UpdateInviteRetired(ctx context.Context, txn *sql.Tx, roomNID types.RoomNID, targetUserNID types.EventStateKeyNID) ([]string, error)
 	// SelectInviteActiveForUserInRoom returns a list of sender state key NIDs and invite event IDs matching those nids.
 	SelectInviteActiveForUserInRoom(ctx context.Context, txn *sql.Tx, targetUserNID types.EventStateKeyNID, roomNID types.RoomNID) ([]types.EventStateKeyNID, []string, error)
+}
+
+// RoomIDPurger purges a room given its roomID
+type RoomIDPurger interface {
+	PurgeRoom(ctx context.Context, txn *sql.Tx, roomID string) (err error)
+}
+
+// RoomNIDPurger purges a room given its roomNID
+type RoomNIDPurger interface {
+	PurgeRoom(ctx context.Context, txn *sql.Tx, roomNID types.RoomNID) error
 }
 
 type MembershipState int64
@@ -120,6 +138,7 @@ const (
 )
 
 type Membership interface {
+	RoomNIDPurger
 	InsertMembership(ctx context.Context, txn *sql.Tx, roomNID types.RoomNID, targetUserNID types.EventStateKeyNID, localTarget bool) error
 	SelectMembershipForUpdate(ctx context.Context, txn *sql.Tx, roomNID types.RoomNID, targetUserNID types.EventStateKeyNID) (MembershipState, error)
 	SelectMembershipFromRoomAndTarget(ctx context.Context, txn *sql.Tx, roomNID types.RoomNID, targetUserNID types.EventStateKeyNID) (types.EventNID, MembershipState, bool, error)
@@ -133,9 +152,11 @@ type Membership interface {
 	UpdateForgetMembership(ctx context.Context, txn *sql.Tx, roomNID types.RoomNID, targetUserNID types.EventStateKeyNID, forget bool) error
 	SelectLocalServerInRoom(ctx context.Context, txn *sql.Tx, roomNID types.RoomNID) (bool, error)
 	SelectServerInRoom(ctx context.Context, txn *sql.Tx, roomNID types.RoomNID, serverName gomatrixserverlib.ServerName) (bool, error)
+	SelectRoomForgotten(ctx context.Context, txn *sql.Tx, roomNID types.RoomNID) (bool, error)
 }
 
 type Published interface {
+	RoomIDPurger
 	UpsertRoomPublished(ctx context.Context, txn *sql.Tx, roomID string, published bool) (err error)
 	SelectPublishedFromRoomID(ctx context.Context, txn *sql.Tx, roomID string) (published bool, err error)
 	SelectAllPublishedRooms(ctx context.Context, txn *sql.Tx, published bool) ([]string, error)
@@ -151,6 +172,7 @@ type RedactionInfo struct {
 }
 
 type Redactions interface {
+	RoomNIDPurger
 	InsertRedaction(ctx context.Context, txn *sql.Tx, info RedactionInfo) error
 	// SelectRedactionInfoByRedactionEventID returns the redaction info for the given redaction event ID, or nil if there is no match.
 	SelectRedactionInfoByRedactionEventID(ctx context.Context, txn *sql.Tx, redactionEventID string) (*RedactionInfo, error)

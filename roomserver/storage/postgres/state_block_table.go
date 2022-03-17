@@ -66,9 +66,15 @@ const bulkSelectStateBlockEntriesSQL = "" +
 	"SELECT state_block_nid, event_nids" +
 	" FROM roomserver_state_block WHERE state_block_nid = ANY($1) ORDER BY state_block_nid ASC"
 
+const purgeStateBlockForRoomSQL = `DELETE FROM roomserver_state_block
+WHERE state_block_nid IN (
+    SELECT DISTINCT unnest(state_block_nids) FROM roomserver_state_snapshots WHERE room_nid = $1
+);`
+
 type stateBlockStatements struct {
 	insertStateDataStmt             *sql.Stmt
 	bulkSelectStateBlockEntriesStmt *sql.Stmt
+	purgeStateBlockForRoomSQL       *sql.Stmt
 }
 
 func createStateBlockTable(db *sql.DB) error {
@@ -82,6 +88,7 @@ func prepareStateBlockTable(db *sql.DB) (tables.StateBlock, error) {
 	return s, sqlutil.StatementList{
 		{&s.insertStateDataStmt, insertStateDataSQL},
 		{&s.bulkSelectStateBlockEntriesStmt, bulkSelectStateBlockEntriesSQL},
+		{&s.purgeStateBlockForRoomSQL, purgeStateBlockForRoomSQL},
 	}.Prepare(db)
 }
 
@@ -132,6 +139,14 @@ func (s *stateBlockStatements) BulkSelectStateBlockEntries(
 		return nil, fmt.Errorf("storage: state data NIDs missing from the database (%d != %d)", i, len(stateBlockNIDs))
 	}
 	return results, err
+}
+
+func (s *stateBlockStatements) PurgeRoom(
+	ctx context.Context, txn *sql.Tx, roomNID types.RoomNID,
+) error {
+	stmt := sqlutil.TxStmt(txn, s.purgeStateBlockForRoomSQL)
+	_, err := stmt.ExecContext(ctx, roomNID)
+	return err
 }
 
 func stateBlockNIDsAsArray(stateBlockNIDs []types.StateBlockNID) pq.Int64Array {

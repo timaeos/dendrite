@@ -136,6 +136,8 @@ const selectMaxEventDepthSQL = "" +
 const selectRoomNIDsForEventNIDsSQL = "" +
 	"SELECT event_nid, room_nid FROM roomserver_events WHERE event_nid = ANY($1)"
 
+const purgeEventsForRoomSQL = "DELETE FROM roomserver_events WHERE room_nid = $1"
+
 type eventStatements struct {
 	insertEventStmt                        *sql.Stmt
 	selectEventStmt                        *sql.Stmt
@@ -153,6 +155,7 @@ type eventStatements struct {
 	bulkSelectUnsentEventNIDStmt           *sql.Stmt
 	selectMaxEventDepthStmt                *sql.Stmt
 	selectRoomNIDsForEventNIDsStmt         *sql.Stmt
+	purgeEventsForRoomStmt                 *sql.Stmt
 }
 
 func createEventsTable(db *sql.DB) error {
@@ -180,6 +183,7 @@ func prepareEventsTable(db *sql.DB) (tables.Events, error) {
 		{&s.bulkSelectUnsentEventNIDStmt, bulkSelectUnsentEventNIDSQL},
 		{&s.selectMaxEventDepthStmt, selectMaxEventDepthSQL},
 		{&s.selectRoomNIDsForEventNIDsStmt, selectRoomNIDsForEventNIDsSQL},
+		{&s.purgeEventsForRoomStmt, purgeEventsForRoomSQL},
 	}.Prepare(db)
 }
 
@@ -531,6 +535,14 @@ func (s *eventStatements) SelectRoomNIDsForEventNIDs(
 		result[eventNID] = roomNID
 	}
 	return result, nil
+}
+
+func (s *eventStatements) PurgeRoom(
+	ctx context.Context, txn *sql.Tx, roomNID types.RoomNID,
+) error {
+	stmt := sqlutil.TxStmt(txn, s.purgeEventsForRoomStmt)
+	_, err := stmt.ExecContext(ctx, roomNID)
+	return err
 }
 
 func eventNIDsAsArray(eventNIDs []types.EventNID) pq.Int64Array {

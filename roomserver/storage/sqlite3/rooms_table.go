@@ -73,6 +73,8 @@ const bulkSelectRoomIDsSQL = "" +
 const bulkSelectRoomNIDsSQL = "" +
 	"SELECT room_nid FROM roomserver_rooms WHERE room_id IN ($1)"
 
+const purgeRoomSQL = "DELETE FROM roomserver_rooms WHERE room_nid = $1"
+
 type roomStatements struct {
 	db                                 *sql.DB
 	insertRoomNIDStmt                  *sql.Stmt
@@ -83,6 +85,7 @@ type roomStatements struct {
 	//selectRoomVersionForRoomNIDStmt    *sql.Stmt
 	selectRoomInfoStmt *sql.Stmt
 	selectRoomIDsStmt  *sql.Stmt
+	purgeRoomStmt      *sql.Stmt
 }
 
 func createRoomsTable(db *sql.DB) error {
@@ -104,6 +107,7 @@ func prepareRoomsTable(db *sql.DB) (tables.Rooms, error) {
 		//{&s.selectRoomVersionForRoomNIDsStmt, selectRoomVersionForRoomNIDsSQL},
 		{&s.selectRoomInfoStmt, selectRoomInfoSQL},
 		{&s.selectRoomIDsStmt, selectRoomIDsSQL},
+		{&s.purgeRoomStmt, purgeRoomSQL},
 	}.Prepare(db)
 }
 
@@ -310,4 +314,12 @@ func (s *roomStatements) BulkSelectRoomNIDs(ctx context.Context, txn *sql.Tx, ro
 		roomNIDs = append(roomNIDs, roomNID)
 	}
 	return roomNIDs, nil
+}
+
+func (s *roomStatements) PurgeRoom(
+	ctx context.Context, txn *sql.Tx, roomNID types.RoomNID,
+) (err error) {
+	stmt := sqlutil.TxStmt(txn, s.purgeRoomStmt)
+	_, err = stmt.ExecContext(ctx, roomNID)
+	return
 }

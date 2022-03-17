@@ -20,6 +20,7 @@ import (
 
 	"github.com/matrix-org/dendrite/internal/sqlutil"
 	"github.com/matrix-org/dendrite/roomserver/storage/tables"
+	"github.com/matrix-org/dendrite/roomserver/types"
 )
 
 const redactionsSchema = `
@@ -52,11 +53,16 @@ const selectRedactionInfoByEventBeingRedactedSQL = "" +
 const markRedactionValidatedSQL = "" +
 	" UPDATE roomserver_redactions SET validated = $2 WHERE redaction_event_id = $1"
 
+const purgeRedactionForRoomSQL = `DELETE FROM roomserver_redactions WHERE redacts_event_id IN (
+	SELECT event_id FROM roomserver_events WHERE room_nid = $1
+);`
+
 type redactionStatements struct {
 	insertRedactionStmt                         *sql.Stmt
 	selectRedactionInfoByRedactionEventIDStmt   *sql.Stmt
 	selectRedactionInfoByEventBeingRedactedStmt *sql.Stmt
 	markRedactionValidatedStmt                  *sql.Stmt
+	purgeRedactionForRoomStmt                   *sql.Stmt
 }
 
 func createRedactionsTable(db *sql.DB) error {
@@ -72,6 +78,7 @@ func prepareRedactionsTable(db *sql.DB) (tables.Redactions, error) {
 		{&s.selectRedactionInfoByRedactionEventIDStmt, selectRedactionInfoByRedactionEventIDSQL},
 		{&s.selectRedactionInfoByEventBeingRedactedStmt, selectRedactionInfoByEventBeingRedactedSQL},
 		{&s.markRedactionValidatedStmt, markRedactionValidatedSQL},
+		{&s.purgeRedactionForRoomStmt, purgeRedactionForRoomSQL},
 	}.Prepare(db)
 }
 
@@ -118,5 +125,13 @@ func (s *redactionStatements) MarkRedactionValidated(
 ) error {
 	stmt := sqlutil.TxStmt(txn, s.markRedactionValidatedStmt)
 	_, err := stmt.ExecContext(ctx, redactionEventID, validated)
+	return err
+}
+
+func (s *redactionStatements) PurgeRoom(
+	ctx context.Context, txn *sql.Tx, roomNID types.RoomNID,
+) error {
+	stmt := sqlutil.TxStmt(txn, s.purgeRedactionForRoomStmt)
+	_, err := stmt.ExecContext(ctx, roomNID)
 	return err
 }

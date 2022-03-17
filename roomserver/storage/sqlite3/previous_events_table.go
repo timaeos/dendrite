@@ -63,11 +63,16 @@ const selectPreviousEventExistsSQL = `
 	  WHERE previous_event_id = $1 AND previous_reference_sha256 = $2
 `
 
+const purgePreviousEventsForRoomSQL = `DELETE FROM roomserver_previous_events WHERE previous_event_id IN (
+    SELECT event_id FROM roomserver_events WHERE room_nid = $1
+);`
+
 type previousEventStatements struct {
-	db                            *sql.DB
-	insertPreviousEventStmt       *sql.Stmt
-	selectPreviousEventNIDsStmt   *sql.Stmt
-	selectPreviousEventExistsStmt *sql.Stmt
+	db                             *sql.DB
+	insertPreviousEventStmt        *sql.Stmt
+	selectPreviousEventNIDsStmt    *sql.Stmt
+	selectPreviousEventExistsStmt  *sql.Stmt
+	purgePreviousEventsForRoomStmt *sql.Stmt
 }
 
 func createPrevEventsTable(db *sql.DB) error {
@@ -84,6 +89,7 @@ func preparePrevEventsTable(db *sql.DB) (tables.PreviousEvents, error) {
 		{&s.insertPreviousEventStmt, insertPreviousEventSQL},
 		{&s.selectPreviousEventNIDsStmt, selectPreviousEventNIDsSQL},
 		{&s.selectPreviousEventExistsStmt, selectPreviousEventExistsSQL},
+		{&s.purgePreviousEventsForRoomStmt, purgePreviousEventsForRoomSQL},
 	}.Prepare(db)
 }
 
@@ -128,4 +134,12 @@ func (s *previousEventStatements) SelectPreviousEventExists(
 	var ok int64
 	stmt := sqlutil.TxStmt(txn, s.selectPreviousEventExistsStmt)
 	return stmt.QueryRowContext(ctx, eventID, eventReferenceSHA256).Scan(&ok)
+}
+
+func (s *previousEventStatements) PurgeRoom(
+	ctx context.Context, txn *sql.Tx, roomNID types.RoomNID,
+) error {
+	stmt := sqlutil.TxStmt(txn, s.purgePreviousEventsForRoomStmt)
+	_, err := stmt.ExecContext(ctx, roomNID)
+	return err
 }

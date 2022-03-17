@@ -48,6 +48,8 @@ const selectInviteActiveForUserInRoomSQL = "" +
 	" WHERE target_nid = $1 AND room_nid = $2" +
 	" AND NOT retired"
 
+const purgeInviteSQL = "DELETE FROM roomserver_invites WHERE room_nid = $1"
+
 // Retire every active invite for a user in a room.
 // Ideally we'd know which invite events were retired by a given update so we
 // wouldn't need to remove every active invite.
@@ -67,6 +69,7 @@ type inviteStatements struct {
 	selectInviteActiveForUserInRoomStmt *sql.Stmt
 	updateInviteRetiredStmt             *sql.Stmt
 	selectInvitesAboutToRetireStmt      *sql.Stmt
+	purgeInviteStmt                     *sql.Stmt
 }
 
 func createInvitesTable(db *sql.DB) error {
@@ -84,6 +87,7 @@ func prepareInvitesTable(db *sql.DB) (tables.Invites, error) {
 		{&s.selectInviteActiveForUserInRoomStmt, selectInviteActiveForUserInRoomSQL},
 		{&s.updateInviteRetiredStmt, updateInviteRetiredSQL},
 		{&s.selectInvitesAboutToRetireStmt, selectInvitesAboutToRetireSQL},
+		{&s.purgeInviteStmt, purgeInviteSQL},
 	}.Prepare(db)
 }
 
@@ -157,4 +161,12 @@ func (s *inviteStatements) SelectInviteActiveForUserInRoom(
 		eventIDs = append(eventIDs, eventID)
 	}
 	return result, eventIDs, nil
+}
+
+func (s *inviteStatements) PurgeRoom(
+	ctx context.Context, txn *sql.Tx, roomNID types.RoomNID,
+) (err error) {
+	stmt := sqlutil.TxStmt(txn, s.purgeInviteStmt)
+	_, err = stmt.ExecContext(ctx, roomNID)
+	return
 }

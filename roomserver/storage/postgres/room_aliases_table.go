@@ -53,12 +53,15 @@ const selectCreatorIDFromAliasSQL = "" +
 const deleteRoomAliasSQL = "" +
 	"DELETE FROM roomserver_room_aliases WHERE alias = $1"
 
+const purgeRoomAliasSQL = "DELETE FROM roomserver_room_aliases WHERE room_id = $1"
+
 type roomAliasesStatements struct {
 	insertRoomAliasStmt          *sql.Stmt
 	selectRoomIDFromAliasStmt    *sql.Stmt
 	selectAliasesFromRoomIDStmt  *sql.Stmt
 	selectCreatorIDFromAliasStmt *sql.Stmt
 	deleteRoomAliasStmt          *sql.Stmt
+	purgeRoomAliasStmt           *sql.Stmt
 }
 
 func createRoomAliasesTable(db *sql.DB) error {
@@ -75,6 +78,7 @@ func prepareRoomAliasesTable(db *sql.DB) (tables.RoomAliases, error) {
 		{&s.selectAliasesFromRoomIDStmt, selectAliasesFromRoomIDSQL},
 		{&s.selectCreatorIDFromAliasStmt, selectCreatorIDFromAliasSQL},
 		{&s.deleteRoomAliasStmt, deleteRoomAliasSQL},
+		{&s.purgeRoomAliasStmt, purgeRoomAliasSQL},
 	}.Prepare(db)
 }
 
@@ -135,5 +139,13 @@ func (s *roomAliasesStatements) DeleteRoomAlias(
 ) (err error) {
 	stmt := sqlutil.TxStmt(txn, s.deleteRoomAliasStmt)
 	_, err = stmt.ExecContext(ctx, alias)
+	return
+}
+
+func (s *roomAliasesStatements) PurgeRoom(
+	ctx context.Context, txn *sql.Tx, roomID string,
+) (err error) {
+	stmt := sqlutil.TxStmt(txn, s.purgeRoomAliasStmt)
+	_, err = stmt.ExecContext(ctx, roomID)
 	return
 }

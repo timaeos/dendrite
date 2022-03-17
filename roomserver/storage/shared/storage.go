@@ -1239,6 +1239,45 @@ func (d *Database) ForgetRoom(ctx context.Context, userID, roomID string, forget
 	})
 }
 
+// PurgeRoom purges a room from the database
+func (d *Database) PurgeRoom(ctx context.Context, roomID string, info *types.RoomInfo) error {
+	// tables to purge
+	roomIDPurgers := []tables.RoomIDPurger{
+		d.RoomAliasesTable, d.PublishedTable,
+	}
+
+	roomNIDPurgers := []tables.RoomNIDPurger{
+		d.RedactionsTable, d.PrevEventsTable, d.StateBlockTable, d.InvitesTable, d.MembershipTable,
+		d.RoomsTable, d.StateSnapshotTable, d.EventJSONTable, d.EventsTable,
+	}
+
+	return d.Writer.Do(d.DB, nil, func(txn *sql.Tx) error {
+		// Pull out eventNIDs and eventIDs for later usage
+		/*eventNIDs, eventIDs, err := d.EventsTable.SelectEventNIDsForRoomNID(ctx, txn, info.RoomNID)
+		if err != nil {
+			return err
+		}*/
+		// purge all traces of the roomNID
+		for i := range roomNIDPurgers {
+			if err := roomNIDPurgers[i].PurgeRoom(ctx, txn, info.RoomNID); err != nil {
+				return err
+			}
+		}
+
+		// finally, purge everything else related to the roomID
+		for i := range roomIDPurgers {
+			if err := roomIDPurgers[i].PurgeRoom(ctx, txn, roomID); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+}
+
+func (d *Database) GetRoomForgotten(ctx context.Context, roomNID types.RoomNID) (bool, error) {
+	return d.MembershipTable.SelectRoomForgotten(ctx, nil, roomNID)
+}
+
 // FIXME TODO: Remove all this - horrible dupe with roomserver/state. Can't use the original impl because of circular loops
 // it should live in this package!
 

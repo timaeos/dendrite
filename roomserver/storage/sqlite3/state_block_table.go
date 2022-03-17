@@ -58,10 +58,17 @@ const bulkSelectStateBlockEntriesSQL = "" +
 	"SELECT state_block_nid, event_nids" +
 	" FROM roomserver_state_block WHERE state_block_nid IN ($1) ORDER BY state_block_nid ASC"
 
+// get all state_block_nids from roomserver_state_snapshots for removal
+const purgeStateBlocksSQL = `SELECT state_block_nids FROM roomserver_state_snapshots WHERE room_nid = $1`
+
+const purgeStateBlockForRoomSQL = `DELETE FROM roomserver_state_block WHERE state_block_nid IN ($1);`
+
 type stateBlockStatements struct {
 	db                              *sql.DB
 	insertStateDataStmt             *sql.Stmt
 	bulkSelectStateBlockEntriesStmt *sql.Stmt
+	purgeStateBlocksStmt            *sql.Stmt
+	purgeStateBlockForRoomSQL       *sql.Stmt
 }
 
 func createStateBlockTable(db *sql.DB) error {
@@ -77,6 +84,8 @@ func prepareStateBlockTable(db *sql.DB) (tables.StateBlock, error) {
 	return s, sqlutil.StatementList{
 		{&s.insertStateDataStmt, insertStateDataSQL},
 		{&s.bulkSelectStateBlockEntriesStmt, bulkSelectStateBlockEntriesSQL},
+		{&s.purgeStateBlockForRoomSQL, purgeStateBlockForRoomSQL},
+		{&s.purgeStateBlocksStmt, purgeStateBlocksSQL},
 	}.Prepare(db)
 }
 
@@ -141,6 +150,49 @@ func (s *stateBlockStatements) BulkSelectStateBlockEntries(
 		return nil, fmt.Errorf("storage: state data NIDs missing from the database (%d != %d)", len(results), len(stateBlockNIDs))
 	}
 	return results, err
+}
+
+func (s *stateBlockStatements) PurgeRoom(
+	ctx context.Context, txn *sql.Tx, roomNID types.RoomNID,
+) error {
+	blocksStmt := sqlutil.TxStmt(txn, s.purgeStateBlocksStmt)
+	rows, err := blocksStmt.QueryContext(ctx, roomNID)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+	nids := types.StateBlockNIDList{}
+	result := []types.StateBlockNIDList{}
+	var stateBlockNIDsJSON string
+	for rows.Next() {
+		if err := rows.Scan(&stateBlockNIDsJSON); err != nil {
+			return err
+		}
+		if err := json.Unmarshal([]byte(stateBlockNIDsJSON), &nids.StateBlockNIDs); err != nil {
+			return err
+		}
+		result = append(result, nids)
+	}
+	if rows.Err() != nil {
+		return rows.Err()
+	}
+
+	// dedupe params
+	stateBlocks := make(map[int64]bool)
+	for i := range result {
+		stateBlock := result[i].StateBlockNIDs
+		for x := range stateBlock {
+			stateBlocks[int64(stateBlock[x])] = true
+		}
+	}
+	// build param list
+	params := make([]interface{}, len(stateBlocks))
+	for k, _ := range stateBlocks {
+		params = append(params, k)
+	}
+
+	// execute queries sequentially if there are too many state blocks to delete
+	return sqlutil.RunLimitedVariablesExec(ctx, txn, purgeStateBlockForRoomSQL, params, sqlutil.SQLite3MaxVariables)
 }
 
 type stateKeyTupleSorter []types.StateKeyTuple
