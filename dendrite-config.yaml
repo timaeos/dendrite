@@ -301,6 +301,8 @@ mscs:
 
 # Configuration for the Room Server.
 room_server:
+  # Defines if a room should be purged from the database, if the last local member leaves.
+  purge_on_last_member_forget: false
   internal_api:
     listen: http://localhost:7770 # Only used in polylith deployments
     connect: http://localhost:7770 # Only used in polylith deployments

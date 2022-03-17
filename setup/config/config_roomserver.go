@@ -3,12 +3,15 @@ package config
 type RoomServer struct {
 	Matrix *Global `yaml:"-"`
 
+	PurgeOnLastMember bool `yaml:"purge_on_last_member_forget"`
+
 	InternalAPI InternalAPIOptions `yaml:"internal_api"`
 
 	Database DatabaseOptions `yaml:"database"`
 }
 
 func (c *RoomServer) Defaults(generate bool) {
+	c.PurgeOnLastMember = false
 	c.InternalAPI.Listen = "http://localhost:7770"
 	c.InternalAPI.Connect = "http://localhost:7770"
 	c.Database.Defaults(10)
