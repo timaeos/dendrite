@@ -160,7 +160,7 @@ func (r *RoomserverInternalAPI) SetFederationAPI(fsAPI fsAPI.FederationInternalA
 		DB:                r.DB,
 		JetStream:         r.JetStream,
 		Subject:           r.Cfg.Matrix.JetStream.TopicFor(jetstream.InputRoomForget),
-		PurgeOnLastMember: r.PurgeOnLastMember,
+		PurgeOnLastMember: r.Cfg.PurgeOnLastMember,
 	}
 
 	if err := r.Inputer.Start(); err != nil {
