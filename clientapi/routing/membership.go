@@ -469,6 +469,13 @@ func SendForget(
 	}
 	err := rsAPI.QueryMembershipForUser(ctx, &membershipReq, &membershipRes)
 	if err != nil {
+		if !membershipRes.RoomExists {
+			logger.Warnf("User tried to forget non-existent room '%s'", roomID)
+			return util.JSONResponse{
+				Code: http.StatusOK,
+				JSON: struct{}{},
+			}
+		}
 		logger.WithError(err).Error("QueryMembershipForUser: could not query membership for user")
 		return jsonerror.InternalServerError()
 	}
