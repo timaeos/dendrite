@@ -105,6 +105,8 @@ type Database interface {
 	RemovePushers(ctx context.Context, appid, pushkey string) error
 
 	PurgeRoom(ctx context.Context, roomID string) error
+	DeleteNotificationsForUser(ctx context.Context, localpart, roomID string) error
+	DeleteAccountDataForUser(ctx context.Context, localpart, roomID string) error
 }
 
 // Err3PIDInUse is the error returned when trying to save an association involving

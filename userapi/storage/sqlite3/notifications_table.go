@@ -29,14 +29,15 @@ import (
 )
 
 type notificationsStatements struct {
-	insertStmt             *sql.Stmt
-	deleteUpToStmt         *sql.Stmt
-	updateReadStmt         *sql.Stmt
-	selectStmt             *sql.Stmt
-	selectCountStmt        *sql.Stmt
-	selectRoomCountsStmt   *sql.Stmt
-	cleanNotificationsStmt *sql.Stmt
-	purgeNotificationsStmt *sql.Stmt
+	insertStmt                     *sql.Stmt
+	deleteUpToStmt                 *sql.Stmt
+	updateReadStmt                 *sql.Stmt
+	selectStmt                     *sql.Stmt
+	selectCountStmt                *sql.Stmt
+	selectRoomCountsStmt           *sql.Stmt
+	cleanNotificationsStmt         *sql.Stmt
+	purgeNotificationsStmt         *sql.Stmt
+	deleteNotificationsForUserStmt *sql.Stmt
 }
 
 const notificationSchema = `
@@ -86,6 +87,8 @@ const cleanNotificationsSQL = "" +
 
 const purgeNotificationsSQL = "DELETE FROM userapi_notifications WHERE room_id = $1"
 
+const deleteNotificationsForUserSQL = "DELETE FROM userapi_notifications WHERE room_id = $1 AND localpart = $2"
+
 func NewSQLiteNotificationTable(db *sql.DB) (tables.NotificationTable, error) {
 	s := &notificationsStatements{}
 	_, err := db.Exec(notificationSchema)
@@ -101,6 +104,7 @@ func NewSQLiteNotificationTable(db *sql.DB) (tables.NotificationTable, error) {
 		{&s.selectRoomCountsStmt, selectRoomNotificationCountsSQL},
 		{&s.cleanNotificationsStmt, cleanNotificationsSQL},
 		{&s.purgeNotificationsStmt, purgeNotificationsSQL},
+		{&s.deleteNotificationsForUserStmt, deleteNotificationsForUserSQL},
 	}.Prepare(db)
 }
 
@@ -243,5 +247,13 @@ func (s *notificationsStatements) PurgeRoom(
 ) error {
 	stmt := sqlutil.TxStmt(txn, s.purgeNotificationsStmt)
 	_, err := stmt.ExecContext(ctx, roomID)
+	return err
+}
+
+func (s *notificationsStatements) DeleteNotificationsForUser(
+	ctx context.Context, txn *sql.Tx, localpart, roomID string,
+) error {
+	stmt := sqlutil.TxStmt(txn, s.deleteNotificationsForUserStmt)
+	_, err := stmt.ExecContext(ctx, roomID, localpart)
 	return err
 }

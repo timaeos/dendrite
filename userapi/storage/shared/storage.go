@@ -777,3 +777,15 @@ func (d *Database) PurgeRoom(ctx context.Context, roomID string) error {
 		return nil
 	})
 }
+
+func (d *Database) DeleteNotificationsForUser(ctx context.Context, localpart, roomID string) error {
+	return d.Writer.Do(d.DB, nil, func(txn *sql.Tx) error {
+		return d.Notifications.DeleteNotificationsForUser(ctx, txn, localpart, roomID)
+
+	})
+}
+func (d *Database) DeleteAccountDataForUser(ctx context.Context, localpart, roomID string) error {
+	return d.Writer.Do(d.DB, nil, func(txn *sql.Tx) error {
+		return d.AccountDatas.DeleteAccountDataForUser(ctx, txn, localpart, roomID)
+	})
+}

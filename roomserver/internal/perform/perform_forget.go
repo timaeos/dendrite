@@ -43,6 +43,18 @@ func (f *Forgetter) PerformForget(
 		return err
 	}
 
+	// Send forget to userapi, to remove unnecessary account data
+	msg := &nats.Msg{
+		Subject: f.Subject,
+	}
+	msg.Header = make(nats.Header)
+	msg.Header.Set(jetstream.RoomID, request.RoomID)
+	msg.Header.Set(jetstream.UserID, request.UserID)
+	_, err = f.JetStream.PublishMsg(msg)
+	if err != nil {
+		return err
+	}
+
 	if f.PurgeOnLastMember {
 		err := f.PurgeRoom(ctx, request.RoomID)
 		if err != nil {

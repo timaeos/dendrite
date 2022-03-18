@@ -147,6 +147,10 @@ func (s *OutputRoomEventConsumer) onMessage(ctx context.Context, msg *nats.Msg) 
 }
 
 func (s *OutputRoomEventConsumer) onForgetRoom(ctx context.Context, msg *nats.Msg) bool {
+	userID := msg.Header.Get(jetstream.UserID)
+	if userID != "" {
+		return true
+	}
 	roomID := msg.Header.Get(jetstream.RoomID)
 	if roomID == "" {
 		return true

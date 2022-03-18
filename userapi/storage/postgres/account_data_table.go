@@ -53,11 +53,14 @@ const selectAccountDataByTypeSQL = "" +
 
 const purgeAccountDataForRoomSQL = "DELETE FROM account_data WHERE room_id = $1"
 
+const deleteAccountDataForUserSQL = "DELETE FROM account_data WHERE room_id = $1 AND localpart = $2"
+
 type accountDataStatements struct {
-	insertAccountDataStmt       *sql.Stmt
-	selectAccountDataStmt       *sql.Stmt
-	selectAccountDataByTypeStmt *sql.Stmt
-	purgeAccountDataForRoomStmt *sql.Stmt
+	insertAccountDataStmt        *sql.Stmt
+	selectAccountDataStmt        *sql.Stmt
+	selectAccountDataByTypeStmt  *sql.Stmt
+	purgeAccountDataForRoomStmt  *sql.Stmt
+	deleteAccountDataForUserStmt *sql.Stmt
 }
 
 func NewPostgresAccountDataTable(db *sql.DB) (tables.AccountDataTable, error) {
@@ -71,6 +74,7 @@ func NewPostgresAccountDataTable(db *sql.DB) (tables.AccountDataTable, error) {
 		{&s.selectAccountDataStmt, selectAccountDataSQL},
 		{&s.selectAccountDataByTypeStmt, selectAccountDataByTypeSQL},
 		{&s.purgeAccountDataForRoomStmt, purgeAccountDataForRoomSQL},
+		{&s.deleteAccountDataForUserStmt, deleteAccountDataForUserSQL},
 	}.Prepare(db)
 }
 
@@ -140,5 +144,13 @@ func (s *accountDataStatements) PurgeRoom(
 ) error {
 	stmt := sqlutil.TxStmt(txn, s.purgeAccountDataForRoomStmt)
 	_, err := stmt.ExecContext(ctx, roomID)
+	return err
+}
+
+func (s *accountDataStatements) DeleteAccountDataForUser(
+	ctx context.Context, txn *sql.Tx, localpart, roomID string,
+) error {
+	stmt := sqlutil.TxStmt(txn, s.deleteAccountDataForUserStmt)
+	_, err := stmt.ExecContext(ctx, roomID, localpart)
 	return err
 }
