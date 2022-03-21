@@ -421,16 +421,20 @@ func (r *Inputer) fetchAuthEvents(
 		return nil
 	}
 
-	for _, authEventID := range authEventIDs {
-		authEvents, err := r.DB.EventsFromIDs(ctx, []string{authEventID})
-		if err != nil || len(authEvents) == 0 || authEvents[0].Event == nil {
-			unknown[authEventID] = struct{}{}
-			continue
-		}
-		ev := authEvents[0]
-		known[authEventID] = &ev // don't take the pointer of the iterated event
-		if err = auth.AddEvent(ev.Event); err != nil {
+	authEvents, err := r.DB.EventsFromIDs(ctx, authEventIDs)
+	if err != nil {
+		return fmt.Errorf("r.DB.EventsFromIDs: %w", err)
+	}
+	for i := range authEvents {
+		authEvent := authEvents[i]
+		known[authEvent.EventID()] = &authEvent
+		if err = auth.AddEvent(authEvent.Event); err != nil {
 			return fmt.Errorf("auth.AddEvent: %w", err)
+		}
+	}
+	for _, authEventID := range authEventIDs {
+		if _, ok := known[authEventID]; !ok {
+			unknown[authEventID] = struct{}{}
 		}
 	}
 
@@ -440,7 +444,6 @@ func (r *Inputer) fetchAuthEvents(
 		return nil
 	}
 
-	var err error
 	var res gomatrixserverlib.RespEventAuth
 	var found bool
 	for _, serverName := range servers {

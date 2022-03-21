@@ -681,7 +681,7 @@ func (t *missingStateReq) lookupMissingStateViaStateIDs(ctx context.Context, roo
 	// If over 50% of the auth/state events from /state_ids are missing
 	// then we'll just call /state instead, otherwise we'll just end up
 	// hammering the remote side with /event requests unnecessarily.
-	if missingCount > concurrentRequests && missingCount > len(wantIDs)/2 {
+	if missingCount > concurrentRequests || missingCount > len(wantIDs)/2 {
 		util.GetLogger(ctx).WithFields(logrus.Fields{
 			"missing":           missingCount,
 			"event_id":          eventID,
