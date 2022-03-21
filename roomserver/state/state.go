@@ -467,6 +467,20 @@ var calculateStateDurations = prometheus.NewHistogramVec(
 	[]string{"algorithm", "outcome"},
 )
 
+var calculateStateAlgorithmDurations = prometheus.NewHistogramVec(
+	prometheus.HistogramOpts{
+		Namespace: "dendrite",
+		Subsystem: "roomserver",
+		Name:      "calculate_state_algorithm_duration_milliseconds",
+		Help:      "How long it takes to run the state resolution algorithm",
+		Buckets: []float64{ // milliseconds
+			1, 2, 3, 4, 5, 10, 25, 50, 75, 100, 200,
+			300, 400, 500, 1000, 2000, 5000, 10000,
+		},
+	},
+	[]string{"room_id"},
+)
+
 var calculateStatePrevEventLength = prometheus.NewSummaryVec(
 	prometheus.SummaryOpts{
 		Namespace: "dendrite",
@@ -898,12 +912,18 @@ func (v *StateResolution) resolveConflictsV2(
 	}
 
 	// Resolve the conflicts.
+	start := time.Now()
+	roomID := ""
+	if len(authEvents) > 0 {
+		roomID = authEvents[0].RoomID()
+	}
 	resolvedEvents := gomatrixserverlib.ResolveStateConflictsV2(
 		conflictedEvents,
 		nonConflictedEvents,
 		authEvents,
 		authDifference,
 	)
+	calculateStateAlgorithmDurations.WithLabelValues(roomID).Observe(float64(time.Since(start).Nanoseconds()))
 
 	// Map from the full events back to numeric state entries.
 	for _, resolvedEvent := range resolvedEvents {
