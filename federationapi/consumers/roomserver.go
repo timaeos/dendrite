@@ -22,6 +22,7 @@ import (
 	"github.com/matrix-org/gomatrixserverlib"
 	"github.com/nats-io/nats.go"
 	log "github.com/sirupsen/logrus"
+	"github.com/tidwall/gjson"
 
 	"github.com/matrix-org/dendrite/federationapi/queue"
 	"github.com/matrix-org/dendrite/federationapi/storage"
@@ -303,9 +304,15 @@ func joinedHostsFromEvents(evs []*gomatrixserverlib.Event) ([]types.JoinedHost, 
 		if membership != gomatrixserverlib.Join {
 			continue
 		}
-		_, serverName, err := gomatrixserverlib.SplitID('@', *ev.StateKey())
-		if err != nil {
-			return nil, err
+		var serverName gomatrixserverlib.ServerName
+		if via := gjson.GetBytes(ev.Content(), "via").String(); via != "" {
+			// NOTSPEC: Use the server name supplied in the membership event
+			// instead of the one in the state key, so a user can opt to have
+			// their federation traffic pushed via a gateway/proxy.
+		} else if _, serverName, err = gomatrixserverlib.SplitID('@', *ev.StateKey()); err != nil {
+			// If the state key doesn't resemble a user ID, just ignore that
+			// membership event.
+			continue
 		}
 		joinedHosts = append(joinedHosts, types.JoinedHost{
 			MemberEventID: ev.EventID(), ServerName: serverName,
