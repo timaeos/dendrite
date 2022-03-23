@@ -22,7 +22,6 @@ import (
 	"github.com/matrix-org/gomatrixserverlib"
 	"github.com/nats-io/nats.go"
 	log "github.com/sirupsen/logrus"
-	"github.com/tidwall/gjson"
 
 	"github.com/matrix-org/dendrite/federationapi/queue"
 	"github.com/matrix-org/dendrite/federationapi/storage"
@@ -291,25 +290,28 @@ func (s *OutputRoomEventConsumer) joinedHostsAtEvent(
 // joinedHostsFromEvents turns a list of state events into a list of joined hosts.
 // This errors if one of the events was invalid.
 // It should be impossible for an invalid event to get this far in the pipeline.
-func joinedHostsFromEvents(evs []*gomatrixserverlib.Event) ([]types.JoinedHost, error) {
+func joinedHostsFromEvents(evs []*gomatrixserverlib.Event) []types.JoinedHost {
 	var joinedHosts []types.JoinedHost
 	for _, ev := range evs {
-		if ev.Type() != "m.room.member" || ev.StateKey() == nil {
-			continue
-		}
 		membership, err := ev.Membership()
 		if err != nil {
-			return nil, err
+			continue
 		}
 		if membership != gomatrixserverlib.Join {
 			continue
 		}
-		if via := gjson.GetBytes(ev.Content(), "via").String(); via != "" {
+		var via struct {
+			ServerName gomatrixserverlib.ServerName `json:"via"`
+		}
+		if err := json.Unmarshal(ev.Content(), &via); err != nil {
+			continue
+		}
+		if via.ServerName != "" {
 			// NOTSPEC: Use the server name supplied in the membership event
 			// instead of the one in the state key, so a user can opt to have
 			// their federation traffic pushed via a gateway/proxy.
 			joinedHosts = append(joinedHosts, types.JoinedHost{
-				MemberEventID: ev.EventID(), ServerName: gomatrixserverlib.ServerName(via),
+				MemberEventID: ev.EventID(), ServerName: via.ServerName,
 			})
 		} else if _, serverName, err := gomatrixserverlib.SplitID('@', *ev.StateKey()); err == nil {
 			joinedHosts = append(joinedHosts, types.JoinedHost{
@@ -317,7 +319,7 @@ func joinedHostsFromEvents(evs []*gomatrixserverlib.Event) ([]types.JoinedHost, 
 			})
 		}
 	}
-	return joinedHosts, nil
+	return joinedHosts
 }
 
 // combineDeltas combines two deltas into a single delta.
