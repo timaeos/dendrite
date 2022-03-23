@@ -298,10 +298,7 @@ func joinedHostsFromEvents(evs []*gomatrixserverlib.Event) []types.JoinedHost {
 		var via struct {
 			ServerName gomatrixserverlib.ServerName `json:"via"`
 		}
-		if err := json.Unmarshal(ev.Content(), &via); err != nil {
-			continue
-		}
-		if via.ServerName != "" {
+		if err = json.Unmarshal(ev.Content(), &via); err == nil && via.ServerName != "" {
 			// NOTSPEC: Use the server name supplied in the membership event
 			// instead of the one in the state key, so a user can opt to have
 			// their federation traffic pushed via a gateway/proxy.
