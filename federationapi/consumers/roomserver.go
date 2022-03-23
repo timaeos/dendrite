@@ -167,10 +167,8 @@ func (s *OutputRoomEventConsumer) processMessage(ore api.OutputNewRoomEvent) err
 		}
 	}
 
-	addsJoinedHosts, err := joinedHostsFromEvents(gomatrixserverlib.UnwrapEventHeaders(eventsRes.Events))
-	if err != nil {
-		return err
-	}
+	addsJoinedHosts := joinedHostsFromEvents(gomatrixserverlib.UnwrapEventHeaders(eventsRes.Events))
+
 	// Update our copy of the current state.
 	// We keep a copy of the current state because the state at each event is
 	// expressed as a delta against the current state.
@@ -241,10 +239,7 @@ func (s *OutputRoomEventConsumer) joinedHostsAtEvent(
 		return nil, err
 	}
 
-	combinedAddsJoinedHosts, err := joinedHostsFromEvents(combinedAddsEvents)
-	if err != nil {
-		return nil, err
-	}
+	combinedAddsJoinedHosts := joinedHostsFromEvents(combinedAddsEvents)
 
 	removed := map[string]bool{}
 	for _, eventID := range combinedRemoves {
