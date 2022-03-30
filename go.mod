@@ -4,6 +4,8 @@ replace github.com/nats-io/nats-server/v2 => github.com/neilalexander/nats-serve
 
 replace github.com/nats-io/nats.go => github.com/neilalexander/nats.go v1.11.1-0.20220104162523-f4ddebe1061c
 
+replace github.com/matrix-org/pinecone => /Volumes/Workspace/pinecone
+
 require (
 	github.com/Arceliar/ironwood v0.0.0-20211125050254-8951369625d0
 	github.com/Arceliar/phony v0.0.0-20210209235338-dde1a8dca979
@@ -39,7 +41,7 @@ require (
 	github.com/matrix-org/go-sqlite3-js v0.0.0-20210709140738-b0d1ba599a6d
 	github.com/matrix-org/gomatrix v0.0.0-20210324163249-be2af5ef2e16
 	github.com/matrix-org/gomatrixserverlib v0.0.0-20220317164600-0980b7f341e0
-	github.com/matrix-org/pinecone v0.0.0-20220323142759-6fb077377278
+	github.com/matrix-org/pinecone v0.0.0-20220329122736-76cdc6a41b63
 	github.com/matrix-org/util v0.0.0-20200807132607-55161520e1d4
 	github.com/mattn/go-sqlite3 v1.14.10
 	github.com/morikuni/aec v1.0.0 // indirect
@@ -48,8 +50,6 @@ require (
 	github.com/neilalexander/utp v0.1.1-0.20210727203401-54ae7b1cd5f9
 	github.com/nfnt/resize v0.0.0-20180221191011-83c6a9932646
 	github.com/ngrok/sqlmw v0.0.0-20211220175533-9d16fdc47b31
-	github.com/onsi/ginkgo v1.16.4 // indirect
-	github.com/onsi/gomega v1.13.0 // indirect
 	github.com/opentracing/opentracing-go v1.2.0
 	github.com/patrickmn/go-cache v2.1.0+incompatible
 	github.com/pkg/errors v0.9.1
