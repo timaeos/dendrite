@@ -122,7 +122,7 @@ func main() {
 		}
 	}()
 
-	pQUIC := pineconeSessions.NewSessions(logger, pRouter /*, []string{"matrix"}*/)
+	pQUIC := pineconeSessions.NewSessions(logger, pRouter, []string{"matrix"})
 	pMulticast := pineconeMulticast.NewMulticast(logger, pRouter)
 	pMulticast.Start()
 
@@ -253,7 +253,7 @@ func main() {
 	pMux.PathPrefix(httputil.PublicFederationPathPrefix).Handler(base.PublicFederationAPIMux)
 	pMux.PathPrefix(httputil.PublicMediaPathPrefix).Handler(base.PublicMediaAPIMux)
 
-	pHTTP := pQUIC. /*Protocol("matrix").*/ HTTP()
+	pHTTP := pQUIC.Protocol("matrix").HTTP()
 	pHTTP.Mux().Handle(users.PublicURL, pMux)
 	pHTTP.Mux().Handle(httputil.PublicFederationPathPrefix, pMux)
 	pHTTP.Mux().Handle(httputil.PublicMediaPathPrefix, pMux)
@@ -275,7 +275,7 @@ func main() {
 	go func() {
 		pubkey := pRouter.PublicKey()
 		logrus.Info("Listening on ", hex.EncodeToString(pubkey[:]))
-		logrus.Fatal(httpServer.Serve(pQUIC /*.Protocol("matrix")*/))
+		logrus.Fatal(httpServer.Serve(pQUIC.Protocol("matrix")))
 	}()
 	go func() {
 		httpBindAddr := fmt.Sprintf(":%d", *instancePort)

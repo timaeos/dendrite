@@ -53,7 +53,7 @@ func (y *RoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
 }
 
 func createTransport(s *pineconeSessions.Sessions) *http.Transport {
-	proto := s /*.Protocol("matrix")*/
+	proto := s.Protocol("matrix")
 	tr := &http.Transport{
 		DisableKeepAlives: false,
 		Dial:              proto.Dial,

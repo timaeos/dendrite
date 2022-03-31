@@ -267,7 +267,7 @@ func (m *DendriteMonolith) Start() {
 
 	logger := log.New(os.Stdout, "PINECONE: ", 0)
 	m.PineconeRouter = pineconeRouter.NewRouter(logger, sk, false)
-	m.PineconeQUIC = pineconeSessions.NewSessions(logger, m.PineconeRouter /*, []string{"matrix"}*/)
+	m.PineconeQUIC = pineconeSessions.NewSessions(logger, m.PineconeRouter, []string{"matrix"})
 	m.PineconeMulticast = pineconeMulticast.NewMulticast(logger, m.PineconeRouter)
 
 	prefix := hex.EncodeToString(pk)
@@ -356,7 +356,7 @@ func (m *DendriteMonolith) Start() {
 	pMux.PathPrefix(httputil.PublicFederationPathPrefix).Handler(base.PublicFederationAPIMux)
 	pMux.PathPrefix(httputil.PublicMediaPathPrefix).Handler(base.PublicMediaAPIMux)
 
-	pHTTP := m.PineconeQUIC. /*.Protocol("matrix")*/ HTTP()
+	pHTTP := m.PineconeQUIC.Protocol("matrix").HTTP()
 	pHTTP.Mux().Handle(users.PublicURL, pMux)
 	pHTTP.Mux().Handle(httputil.PublicFederationPathPrefix, pMux)
 	pHTTP.Mux().Handle(httputil.PublicMediaPathPrefix, pMux)
@@ -382,7 +382,7 @@ func (m *DendriteMonolith) Start() {
 
 	go func() {
 		m.logger.Info("Listening on ", cfg.Global.ServerName)
-		m.logger.Fatal(m.httpServer.Serve(m.PineconeQUIC /*.Protocol("matrix")*/))
+		m.logger.Fatal(m.httpServer.Serve(m.PineconeQUIC.Protocol("matrix")))
 	}()
 	go func() {
 		logrus.Info("Listening on ", m.listener.Addr())
