@@ -132,7 +132,10 @@ func (r *Leaver) performLeaveRoomByID(
 		return nil, err
 	}
 	if !latestRes.RoomExists {
-		return nil, fmt.Errorf("room %q does not exist", req.RoomID)
+		// It's quite likely the room is a stub room at this point because a
+		// stub would have been created at the point that the federated invite
+		// was received. If that's the case, perform a federated leave.
+		return r.performFederatedRejectInvite(ctx, req, res, senderUser, eventID)
 	}
 
 	// Now let's see if the user is in the room.
