@@ -243,19 +243,27 @@ func (n *Notifier) OnNewPresence(
 	defer n.streamLock.Unlock()
 
 	n.currPos.ApplyUpdates(posUpdate)
-	sharedUsers := n.SharedUsers(userID)
-	sharedUsers = append(sharedUsers, userID)
 
-	n.wakeupUsers(sharedUsers, nil, n.currPos)
+	n.wakeupUsers(n.SharedUsers(userID), nil, n.currPos)
 }
 
-func (n *Notifier) SharedUsers(userID string) (sharedUsers []string) {
+func (n *Notifier) SharedUsers(userID string) []string {
 	n.mapLock.RLock()
 	defer n.mapLock.RUnlock()
+	sharedMap := map[string]struct{}{
+		userID: {},
+	}
 	for roomID, users := range n.roomIDToJoinedUsers {
-		if _, ok := users[userID]; ok {
-			sharedUsers = append(sharedUsers, n.JoinedUsers(roomID)...)
+		if _, ok := users[userID]; !ok {
+			continue
 		}
+		for _, joinedUser := range n.JoinedUsers(roomID) {
+			sharedMap[joinedUser] = struct{}{}
+		}
+	}
+	sharedUsers := make([]string, 0, len(sharedMap))
+	for sharedUser := range sharedMap {
+		sharedUsers = append(sharedUsers, sharedUser)
 	}
 	return sharedUsers
 }
