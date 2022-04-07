@@ -38,7 +38,7 @@ const selectIgnoresSQL = "" +
 
 const upsertIgnoresSQL = "" +
 	"INSERT INTO syncapi_ignores (user_id, ignores_json) VALUES ($1, $2)" +
-	" ON CONFLICT DO UPDATE set ignores_json = $2"
+	" ON CONFLICT ON CONSTRAINT (user_id) DO UPDATE set ignores_json = $2"
 
 type ignoresStatements struct {
 	selectIgnoresStmt *sql.Stmt
