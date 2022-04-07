@@ -411,7 +411,10 @@ func (t *txnReq) processPresence(ctx context.Context, e gomatrixserverlib.EDU) e
 		return err
 	}
 	for _, content := range payload.Push {
-		presence := syncTypes.PresenceFromString(content.Presence)
+		presence, ok := syncTypes.PresenceFromString(content.Presence)
+		if !ok {
+			continue
+		}
 		if err := t.producer.SendPresence(ctx, content.UserID, presence, content.StatusMsg, content.LastActiveAgo); err != nil {
 			return err
 		}

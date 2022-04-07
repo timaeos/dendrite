@@ -24,9 +24,10 @@ import (
 type Presence uint8
 
 const (
-	PresenceUnavailable Presence = iota + 1 // unavailable
-	PresenceOnline                          // online
-	PresenceOffline                         // offline
+	PresenceUnknown     Presence = iota // no status known
+	PresenceUnavailable                 // "unavailable"
+	PresenceOnline                      // "online"
+	PresenceOffline                     // "offline"
 )
 
 func (p Presence) String() string {
@@ -35,21 +36,25 @@ func (p Presence) String() string {
 		return "unavailable"
 	case PresenceOnline:
 		return "online"
-	default:
+	case PresenceOffline:
 		return "offline"
+	default:
+		return "unknown"
 	}
 }
 
 // PresenceFromString returns the integer representation of the given input presence.
 // Returns false for ok, if input is not a valid presence value.
-func PresenceFromString(input string) (p Presence) {
+func PresenceFromString(input string) (Presence, bool) {
 	switch strings.ToLower(input) {
 	case "unavailable":
-		return PresenceUnavailable
+		return PresenceUnavailable, true
 	case "online":
-		return PresenceOnline
+		return PresenceOnline, true
+	case "offline":
+		return PresenceOffline, true
 	default:
-		return PresenceOffline
+		return PresenceUnknown, false
 	}
 }
 

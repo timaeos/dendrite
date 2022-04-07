@@ -15,6 +15,7 @@
 package routing
 
 import (
+	"fmt"
 	"net/http"
 	"strconv"
 	"time"
@@ -62,7 +63,13 @@ func SetPresence(
 		return *parseErr
 	}
 
-	presenceStatus := types.PresenceFromString(presence.Presence)
+	presenceStatus, ok := types.PresenceFromString(presence.Presence)
+	if !ok {
+		return util.JSONResponse{
+			Code: http.StatusBadRequest,
+			JSON: jsonerror.Unknown(fmt.Sprintf("Unknown presence '%s'.", presence.Presence)),
+		}
+	}
 	err := producer.SendPresence(req.Context(), userID, presenceStatus, presence.StatusMsg)
 	if err != nil {
 		log.WithError(err).Errorf("failed to update presence")

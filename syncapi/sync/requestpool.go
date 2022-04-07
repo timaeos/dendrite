@@ -120,7 +120,10 @@ func (rp *RequestPool) updatePresence(db storage.Presence, presence string, user
 		presence = types.PresenceOnline.String()
 	}
 
-	presenceID := types.PresenceFromString(presence)
+	presenceID, ok := types.PresenceFromString(presence)
+	if !ok { // this should almost never happen
+		return
+	}
 	newPresence := types.PresenceInternal{
 		ClientFields: types.PresenceClientResponse{
 			Presence: presenceID.String(),
