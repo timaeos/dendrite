@@ -149,4 +149,7 @@ type Database interface {
 	SelectContextAfterEvent(ctx context.Context, id int, roomID string, filter *gomatrixserverlib.RoomEventFilter) (int, []*gomatrixserverlib.HeaderedEvent, error)
 
 	StreamToTopologicalPosition(ctx context.Context, roomID string, streamPos types.StreamPosition, backwardOrdering bool) (types.TopologyToken, error)
+
+	SelectIgnores(ctx context.Context, userID string) (*types.IgnoredUsers, error)
+	UpsertIgnores(ctx context.Context, userID string, ignores *types.IgnoredUsers) error
 }
