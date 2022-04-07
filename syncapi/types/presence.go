@@ -31,12 +31,12 @@ const (
 
 func (p Presence) String() string {
 	switch p {
+	case PresenceUnavailable:
+		return "unavailable"
 	case PresenceOnline:
 		return "online"
-	case PresenceOffline:
-		return "offline"
 	default:
-		return "unavailable"
+		return "offline"
 	}
 }
 
@@ -44,12 +44,12 @@ func (p Presence) String() string {
 // Returns false for ok, if input is not a valid presence value.
 func PresenceFromString(input string) (p Presence) {
 	switch strings.ToLower(input) {
+	case "unavailable":
+		return PresenceUnavailable
 	case "online":
 		return PresenceOnline
-	case "offline":
-		return PresenceOffline
 	default:
-		return PresenceUnavailable
+		return PresenceOffline
 	}
 }
 
