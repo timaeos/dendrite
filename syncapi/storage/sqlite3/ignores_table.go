@@ -63,7 +63,6 @@ func NewSqliteIgnoresTable(db *sql.DB) (tables.Ignores, error) {
 func (s *ignoresStatements) SelectIgnores(
 	ctx context.Context, userID string,
 ) (*types.IgnoredUsers, error) {
-	// Retrieve ignores from database (stored as canonical JSON)
 	var ignoresData []byte
 	err := s.selectIgnoresStmt.QueryRowContext(ctx, userID).Scan(&ignoresData)
 	if err != nil {

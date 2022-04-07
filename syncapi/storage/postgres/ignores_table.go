@@ -38,7 +38,7 @@ const selectIgnoresSQL = "" +
 
 const upsertIgnoresSQL = "" +
 	"INSERT INTO syncapi_ignores (user_id, ignores_json) VALUES ($1, $2)" +
-	" ON CONFLICT ON CONSTRAINT (user_id) DO UPDATE set ignores_json = $2"
+	" ON CONFLICT (user_id) DO UPDATE set ignores_json = $2"
 
 type ignoresStatements struct {
 	selectIgnoresStmt *sql.Stmt
@@ -63,7 +63,6 @@ func NewPostgresIgnoresTable(db *sql.DB) (tables.Ignores, error) {
 func (s *ignoresStatements) SelectIgnores(
 	ctx context.Context, userID string,
 ) (*types.IgnoredUsers, error) {
-	// Retrieve ignores from database (stored as canonical JSON)
 	var ignoresData []byte
 	err := s.selectIgnoresStmt.QueryRowContext(ctx, userID).Scan(&ignoresData)
 	if err != nil {

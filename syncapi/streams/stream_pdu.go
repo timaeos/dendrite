@@ -2,6 +2,7 @@ package streams
 
 import (
 	"context"
+	"database/sql"
 	"sync"
 	"time"
 
@@ -416,6 +417,9 @@ func (p *PDUStreamProvider) getJoinResponseForCompleteSync(
 func (p *PDUStreamProvider) addIgnoredUsersToFilter(ctx context.Context, req *types.SyncRequest, eventFilter *gomatrixserverlib.RoomEventFilter) error {
 	ignores, err := p.DB.SelectIgnores(ctx, req.Device.UserID)
 	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil
+		}
 		return err
 	}
 	for userID := range ignores.List {
