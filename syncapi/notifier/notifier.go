@@ -25,6 +25,9 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+// NOTE: ALL FUNCTIONS IN THIS FILE PREFIXED WITH _ ARE NOT THREAD-SAFE
+// AND MUST ONLY BE CALLED WHEN THE NOTIFIER LOCK IS HELD!
+
 // Notifier will wake up sleeping requests when there is some new data.
 // It does not tell requests what that data is, only the sync position which
 // they can use to get at it. This is done to prevent races whereby we tell the caller
@@ -88,7 +91,7 @@ func (n *Notifier) OnNewEvent(
 	n.lock.Lock()
 	defer n.lock.Unlock()
 	n.currPos.ApplyUpdates(posUpdate)
-	n.removeEmptyUserStreams()
+	n._removeEmptyUserStreams()
 
 	if ev != nil {
 		// Map this event's room_id to a list of joined users, and wake them up.
@@ -303,7 +306,7 @@ func (n *Notifier) GetListener(req types.SyncRequest) UserDeviceStreamListener {
 	n.lock.Lock()
 	defer n.lock.Unlock()
 
-	n.removeEmptyUserStreams()
+	n._removeEmptyUserStreams()
 
 	return n._fetchUserDeviceStream(req.Device.UserID, req.Device.ID, true).GetListener(req.Context)
 }
@@ -399,7 +402,6 @@ func (n *Notifier) _wakeupUserDevice(userID string, deviceIDs []string, newPos t
 // _fetchUserDeviceStream retrieves a stream unique to the given device. If makeIfNotExists is true,
 // a stream will be made for this device if one doesn't exist and it will be returned. This
 // function does not wait for data to be available on the stream.
-// NB: Callers should have locked the mutex before calling this function.
 func (n *Notifier) _fetchUserDeviceStream(userID, deviceID string, makeIfNotExists bool) *UserDeviceStream {
 	_, ok := n.userDeviceStreams[userID]
 	if !ok {
@@ -424,7 +426,6 @@ func (n *Notifier) _fetchUserDeviceStream(userID, deviceID string, makeIfNotExis
 // _fetchUserStreams retrieves all streams for the given user. If makeIfNotExists is true,
 // a stream will be made for this user if one doesn't exist and it will be returned. This
 // function does not wait for data to be available on the stream.
-// NB: Callers should have locked the mutex before calling this function.
 func (n *Notifier) _fetchUserStreams(userID string) []*UserDeviceStream {
 	user, ok := n.userDeviceStreams[userID]
 	if !ok {
@@ -437,7 +438,6 @@ func (n *Notifier) _fetchUserStreams(userID string) []*UserDeviceStream {
 	return streams
 }
 
-// Not thread-safe: must be called on the OnNewEvent goroutine only
 func (n *Notifier) _addJoinedUser(roomID, userID string) {
 	if _, ok := n.roomIDToJoinedUsers[roomID]; !ok {
 		n.roomIDToJoinedUsers[roomID] = make(userIDSet)
@@ -445,7 +445,6 @@ func (n *Notifier) _addJoinedUser(roomID, userID string) {
 	n.roomIDToJoinedUsers[roomID].add(userID)
 }
 
-// Not thread-safe: must be called on the OnNewEvent goroutine only
 func (n *Notifier) _removeJoinedUser(roomID, userID string) {
 	if _, ok := n.roomIDToJoinedUsers[roomID]; !ok {
 		n.roomIDToJoinedUsers[roomID] = make(userIDSet)
@@ -453,7 +452,6 @@ func (n *Notifier) _removeJoinedUser(roomID, userID string) {
 	n.roomIDToJoinedUsers[roomID].remove(userID)
 }
 
-// Not thread-safe: must be called on the OnNewEvent goroutine only
 func (n *Notifier) JoinedUsers(roomID string) (userIDs []string) {
 	n.lock.RLock()
 	defer n.lock.RUnlock()
@@ -467,7 +465,6 @@ func (n *Notifier) _joinedUsers(roomID string) (userIDs []string) {
 	return n.roomIDToJoinedUsers[roomID].values()
 }
 
-// Not thread-safe: must be called on the OnNewEvent goroutine only
 func (n *Notifier) _addPeekingDevice(roomID, userID, deviceID string) {
 	if _, ok := n.roomIDToPeekingDevices[roomID]; !ok {
 		n.roomIDToPeekingDevices[roomID] = make(peekingDeviceSet)
@@ -475,8 +472,6 @@ func (n *Notifier) _addPeekingDevice(roomID, userID, deviceID string) {
 	n.roomIDToPeekingDevices[roomID].add(types.PeekingDevice{UserID: userID, DeviceID: deviceID})
 }
 
-// Not thread-safe: must be called on the OnNewEvent goroutine only
-// nolint:unused
 func (n *Notifier) _removePeekingDevice(roomID, userID, deviceID string) {
 	if _, ok := n.roomIDToPeekingDevices[roomID]; !ok {
 		n.roomIDToPeekingDevices[roomID] = make(peekingDeviceSet)
@@ -485,7 +480,6 @@ func (n *Notifier) _removePeekingDevice(roomID, userID, deviceID string) {
 	n.roomIDToPeekingDevices[roomID].remove(types.PeekingDevice{UserID: userID, DeviceID: deviceID})
 }
 
-// Not thread-safe: must be called on the OnNewEvent goroutine only
 func (n *Notifier) PeekingDevices(roomID string) (peekingDevices []types.PeekingDevice) {
 	n.lock.RLock()
 	defer n.lock.RUnlock()
@@ -499,14 +493,13 @@ func (n *Notifier) _peekingDevices(roomID string) (peekingDevices []types.Peekin
 	return n.roomIDToPeekingDevices[roomID].values()
 }
 
-// removeEmptyUserStreams iterates through the user stream map and removes any
+// _removeEmptyUserStreams iterates through the user stream map and removes any
 // that have been empty for a certain amount of time. This is a crude way of
 // ensuring that the userStreams map doesn't grow forver.
 // This should be called when the notifier gets called for whatever reason,
 // the function itself is responsible for ensuring it doesn't iterate too
 // often.
-// NB: Callers should have locked the mutex before calling this function.
-func (n *Notifier) removeEmptyUserStreams() {
+func (n *Notifier) _removeEmptyUserStreams() {
 	// Only clean up  now and again
 	now := time.Now()
 	if n.lastCleanUpTime.Add(time.Minute).After(now) {
