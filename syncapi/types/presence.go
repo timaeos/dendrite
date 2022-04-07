@@ -21,7 +21,6 @@ import (
 	"github.com/matrix-org/gomatrixserverlib"
 )
 
-//go:generate stringer -type=Presence -linecomment
 type Presence uint8
 
 const (
@@ -30,16 +29,28 @@ const (
 	PresenceOffline                         // offline
 )
 
+func (p Presence) String() string {
+	switch p {
+	case PresenceOnline:
+		return "online"
+	case PresenceOffline:
+		return "offline"
+	default:
+		return "unavailable"
+	}
+}
+
 // PresenceFromString returns the integer representation of the given input presence.
 // Returns false for ok, if input is not a valid presence value.
-func PresenceFromString(input string) (p Presence, ok bool) {
-	for i := 0; i < len(_Presence_index)-1; i++ {
-		l, r := _Presence_index[i], _Presence_index[i+1]
-		if strings.EqualFold(input, _Presence_name[l:r]) {
-			return Presence(i + 1), true
-		}
+func PresenceFromString(input string) (p Presence) {
+	switch strings.ToLower(input) {
+	case "online":
+		return PresenceOnline
+	case "offline":
+		return PresenceOffline
+	default:
+		return PresenceUnavailable
 	}
-	return 0, false
 }
 
 type PresenceInternal struct {

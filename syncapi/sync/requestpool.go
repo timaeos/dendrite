@@ -120,12 +120,7 @@ func (rp *RequestPool) updatePresence(db storage.Presence, presence string, user
 		presence = types.PresenceOnline.String()
 	}
 
-	presenceID, ok := types.PresenceFromString(presence)
-	if !ok { // this should almost never happen
-		logrus.Errorf("unknown presence '%s'", presence)
-		return
-	}
-
+	presenceID := types.PresenceFromString(presence)
 	newPresence := types.PresenceInternal{
 		ClientFields: types.PresenceClientResponse{
 			Presence: presenceID.String(),

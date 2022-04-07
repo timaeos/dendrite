@@ -411,11 +411,7 @@ func (t *txnReq) processPresence(ctx context.Context, e gomatrixserverlib.EDU) e
 		return err
 	}
 	for _, content := range payload.Push {
-		presence, ok := syncTypes.PresenceFromString(content.Presence)
-		if !ok {
-			logrus.Warnf("invalid presence '%s', skipping.", content.Presence)
-			continue
-		}
+		presence := syncTypes.PresenceFromString(content.Presence)
 		if err := t.producer.SendPresence(ctx, content.UserID, presence, content.StatusMsg, content.LastActiveAgo); err != nil {
 			return err
 		}
