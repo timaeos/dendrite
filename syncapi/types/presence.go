@@ -24,10 +24,10 @@ import (
 type Presence uint8
 
 const (
-	PresenceUnknown     Presence = iota // no status known
-	PresenceUnavailable                 // "unavailable"
-	PresenceOnline                      // "online"
-	PresenceOffline                     // "offline"
+	PresenceUnknown     Presence = iota
+	PresenceUnavailable          // unavailable
+	PresenceOnline               // online
+	PresenceOffline              // offline
 )
 
 func (p Presence) String() string {
