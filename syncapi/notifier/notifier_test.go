@@ -378,3 +378,19 @@ func newTestSyncRequest(userID, deviceID string, since types.StreamingToken) typ
 		Context:       context.TODO(),
 	}
 }
+
+func Benchmark_sharedUsers(b *testing.B) {
+	roomID := "testing"
+	n := NewNotifier()
+	for i := 0; i < 50000; i++ {
+		userID := util.RandomString(16)
+		n._addJoinedUser(roomID, userID)
+	}
+	n._addJoinedUser(roomID, "testing")
+
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		n._sharedUsers("testing")
+	}
+}

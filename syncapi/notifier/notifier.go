@@ -45,8 +45,6 @@ type Notifier struct {
 	userDeviceStreams map[string]map[string]*UserDeviceStream
 	// The last time we cleaned out stale entries from the userStreams map
 	lastCleanUpTime time.Time
-	// This map is reused to prevent allocations and GC pressure in SharedUsers.
-	_sharedUserMap map[string]struct{}
 }
 
 // NewNotifier creates a new notifier set to the given sync position.
@@ -59,7 +57,6 @@ func NewNotifier() *Notifier {
 		userDeviceStreams:      make(map[string]map[string]*UserDeviceStream),
 		lock:                   &sync.RWMutex{},
 		lastCleanUpTime:        time.Now(),
-		_sharedUserMap:         map[string]struct{}{},
 	}
 }
 
@@ -260,20 +257,15 @@ func (n *Notifier) SharedUsers(userID string) []string {
 }
 
 func (n *Notifier) _sharedUsers(userID string) []string {
-	n._sharedUserMap[userID] = struct{}{}
+	sharedUsers := make([]string, 0, 4096)
+	sharedUsers = append(sharedUsers, userID)
 	for roomID, users := range n.roomIDToJoinedUsers {
 		if _, ok := users[userID]; !ok {
 			continue
 		}
-		for _, userID := range n._joinedUsers(roomID) {
-			n._sharedUserMap[userID] = struct{}{}
-		}
+		sharedUsers = append(sharedUsers, n._joinedUsers(roomID)...)
 	}
-	sharedUsers := make([]string, 0, len(n._sharedUserMap)+1)
-	for userID := range n._sharedUserMap {
-		sharedUsers = append(sharedUsers, userID)
-		delete(n._sharedUserMap, userID)
-	}
+
 	return sharedUsers
 }
 
