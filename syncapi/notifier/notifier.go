@@ -363,13 +363,18 @@ func (n *Notifier) setPeekingDevices(roomIDToPeekingDevices map[string][]types.P
 // _wakeupUsers will wake up the sync strems for all of the devices for all of the
 // specified user IDs, and also the specified peekingDevices
 func (n *Notifier) _wakeupUsers(userIDs []string, peekingDevices []types.PeekingDevice, newPos types.StreamingToken) {
+	alreadyWokenUp := make(map[string]struct{})
 	for _, userID := range userIDs {
+		if _, ok := alreadyWokenUp[userID]; ok {
+			continue
+		}
 		for _, stream := range n._fetchUserStreams(userID) {
 			if stream == nil {
 				continue
 			}
 			stream.Broadcast(newPos) // wake up all goroutines Wait()ing on this stream
 		}
+		alreadyWokenUp[userID] = struct{}{}
 	}
 
 	for _, peekingDevice := range peekingDevices {
