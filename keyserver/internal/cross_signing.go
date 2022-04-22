@@ -546,7 +546,8 @@ func (a *KeyInternalAPI) QuerySignatures(ctx context.Context, req *api.QuerySign
 		}
 
 		for _, targetKeyID := range forTargetUser {
-			sigMap, err := a.DB.CrossSigningSigsForTarget(ctx, targetUserID, targetKeyID)
+			// Get own signatures only.
+			sigMap, err := a.DB.CrossSigningSigsForOriginTarget(ctx, targetUserID, targetUserID, targetKeyID)
 			if err != nil && err != sql.ErrNoRows {
 				res.Error = &api.KeyError{
 					Err: fmt.Sprintf("a.DB.CrossSigningSigsForTarget: %s", err),
