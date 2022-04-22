@@ -41,6 +41,10 @@ const selectCrossSigningSigsForTargetSQL = "" +
 	"SELECT origin_user_id, origin_key_id, signature FROM keyserver_cross_signing_sigs" +
 	" WHERE target_user_id = $1 AND target_key_id = $2"
 
+const selectCrossSigningSigsForOriginTargetSQL = "" +
+	"SELECT origin_user_id, origin_key_id, signature FROM keyserver_cross_signing_sigs" +
+	" WHERE origin_user_id = $1 AND target_user_id = $2 AND target_key_id = $3"
+
 const upsertCrossSigningSigsForTargetSQL = "" +
 	"INSERT INTO keyserver_cross_signing_sigs (origin_user_id, origin_key_id, target_user_id, target_key_id, signature)" +
 	" VALUES($1, $2, $3, $4, $5)" +
@@ -50,10 +54,11 @@ const deleteCrossSigningSigsForTargetSQL = "" +
 	"DELETE FROM keyserver_cross_signing_sigs WHERE target_user_id=$1 AND target_key_id=$2"
 
 type crossSigningSigsStatements struct {
-	db                                  *sql.DB
-	selectCrossSigningSigsForTargetStmt *sql.Stmt
-	upsertCrossSigningSigsForTargetStmt *sql.Stmt
-	deleteCrossSigningSigsForTargetStmt *sql.Stmt
+	db                                        *sql.DB
+	selectCrossSigningSigsForTargetStmt       *sql.Stmt
+	selectCrossSigningSigsForOriginTargetStmt *sql.Stmt
+	upsertCrossSigningSigsForTargetStmt       *sql.Stmt
+	deleteCrossSigningSigsForTargetStmt       *sql.Stmt
 }
 
 func NewPostgresCrossSigningSigsTable(db *sql.DB) (tables.CrossSigningSigs, error) {
@@ -66,6 +71,7 @@ func NewPostgresCrossSigningSigsTable(db *sql.DB) (tables.CrossSigningSigs, erro
 	}
 	return s, sqlutil.StatementList{
 		{&s.selectCrossSigningSigsForTargetStmt, selectCrossSigningSigsForTargetSQL},
+		{&s.selectCrossSigningSigsForOriginTargetStmt, selectCrossSigningSigsForOriginTargetSQL},
 		{&s.upsertCrossSigningSigsForTargetStmt, upsertCrossSigningSigsForTargetSQL},
 		{&s.deleteCrossSigningSigsForTargetStmt, deleteCrossSigningSigsForTargetSQL},
 	}.Prepare(db)
@@ -79,6 +85,30 @@ func (s *crossSigningSigsStatements) SelectCrossSigningSigsForTarget(
 		return nil, err
 	}
 	defer internal.CloseAndLogIfError(ctx, rows, "selectCrossSigningSigsForTargetStmt: rows.close() failed")
+	r = types.CrossSigningSigMap{}
+	for rows.Next() {
+		var userID string
+		var keyID gomatrixserverlib.KeyID
+		var signature gomatrixserverlib.Base64Bytes
+		if err := rows.Scan(&userID, &keyID, &signature); err != nil {
+			return nil, err
+		}
+		if _, ok := r[userID]; !ok {
+			r[userID] = map[gomatrixserverlib.KeyID]gomatrixserverlib.Base64Bytes{}
+		}
+		r[userID][keyID] = signature
+	}
+	return
+}
+
+func (s *crossSigningSigsStatements) SelectCrossSigningSigsForOriginTarget(
+	ctx context.Context, txn *sql.Tx, originUserID, targetUserID string, targetKeyID gomatrixserverlib.KeyID,
+) (r types.CrossSigningSigMap, err error) {
+	rows, err := sqlutil.TxStmt(txn, s.selectCrossSigningSigsForOriginTargetStmt).QueryContext(ctx, originUserID, targetUserID, targetKeyID)
+	if err != nil {
+		return nil, err
+	}
+	defer internal.CloseAndLogIfError(ctx, rows, "selectCrossSigningSigsForOriginTargetStmt: rows.close() failed")
 	r = types.CrossSigningSigMap{}
 	for rows.Next() {
 		var userID string
