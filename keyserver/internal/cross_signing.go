@@ -469,7 +469,7 @@ func (a *KeyInternalAPI) crossSigningKeysFromDatabase(
 				break
 			}
 
-			sigMap, err := a.DB.CrossSigningSigsForOriginTarget(ctx, req.UserID, targetUserID, keyID)
+			sigMap, err := a.DB.CrossSigningSigsForTarget(ctx, req.UserID, targetUserID, keyID)
 			if err != nil && err != sql.ErrNoRows {
 				logrus.WithError(err).Errorf("Failed to get cross-signing signatures for user %q key %q", targetUserID, keyID)
 				continue
@@ -547,7 +547,7 @@ func (a *KeyInternalAPI) QuerySignatures(ctx context.Context, req *api.QuerySign
 
 		for _, targetKeyID := range forTargetUser {
 			// Get own signatures only.
-			sigMap, err := a.DB.CrossSigningSigsForOriginTarget(ctx, targetUserID, targetUserID, targetKeyID)
+			sigMap, err := a.DB.CrossSigningSigsForTarget(ctx, targetUserID, targetUserID, targetKeyID)
 			if err != nil && err != sql.ErrNoRows {
 				res.Error = &api.KeyError{
 					Err: fmt.Sprintf("a.DB.CrossSigningSigsForTarget: %s", err),

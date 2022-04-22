@@ -316,9 +316,9 @@ func (a *KeyInternalAPI) QueryKeys(ctx context.Context, req *api.QueryKeysReques
 
 	for targetUserID, masterKey := range res.MasterKeys {
 		for targetKeyID := range masterKey.Keys {
-			sigMap, err := a.DB.CrossSigningSigsForOriginTarget(ctx, req.UserID, targetUserID, targetKeyID)
+			sigMap, err := a.DB.CrossSigningSigsForTarget(ctx, req.UserID, targetUserID, targetKeyID)
 			if err != nil {
-				logrus.WithError(err).Errorf("a.DB.CrossSigningSigsForOriginTarget failed")
+				logrus.WithError(err).Errorf("a.DB.CrossSigningSigsForTarget failed")
 				continue
 			}
 			if len(sigMap) == 0 {
@@ -337,9 +337,9 @@ func (a *KeyInternalAPI) QueryKeys(ctx context.Context, req *api.QueryKeysReques
 
 	for targetUserID, forUserID := range res.DeviceKeys {
 		for targetKeyID, key := range forUserID {
-			sigMap, err := a.DB.CrossSigningSigsForOriginTarget(ctx, req.UserID, targetUserID, gomatrixserverlib.KeyID(targetKeyID))
+			sigMap, err := a.DB.CrossSigningSigsForTarget(ctx, req.UserID, targetUserID, gomatrixserverlib.KeyID(targetKeyID))
 			if err != nil {
-				logrus.WithError(err).Errorf("a.DB.CrossSigningSigsForOriginTarget failed")
+				logrus.WithError(err).Errorf("a.DB.CrossSigningSigsForTarget failed")
 				continue
 			}
 			if len(sigMap) == 0 {
