@@ -56,16 +56,16 @@ func NewOutputRoomEventConsumer(
 	rsAPI api.RoomserverInternalAPI,
 ) *OutputRoomEventConsumer {
 	return &OutputRoomEventConsumer{
-		ctx:           process.Context(),
-		cfg:           cfg,
-		jetstream:     js,
-		db:            store,
-		queues:        queues,
-		rsAPI:         rsAPI,
-		durable:       cfg.Matrix.JetStream.Durable("FederationAPIRoomServerConsumer"),
-		topic:         cfg.Matrix.JetStream.TopicFor(jetstream.OutputRoomEvent),
+		ctx:       process.Context(),
+		cfg:       cfg,
+		jetstream: js,
+		db:        store,
+		queues:    queues,
+		rsAPI:     rsAPI,
+		durable:   cfg.Matrix.JetStream.Durable("FederationAPIRoomServerConsumer"),
+		topic:     cfg.Matrix.JetStream.Prefixed(jetstream.OutputRoomEvent),
 		durableForget: cfg.Matrix.JetStream.Durable("FederationAPIForgetRoomConsumer"),
-		topicForget:   cfg.Matrix.JetStream.TopicFor(jetstream.InputRoomForget),
+		topicForget:   cfg.Matrix.JetStream.Prefixed(jetstream.InputRoomForget),
 	}
 }
 

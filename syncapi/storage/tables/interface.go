@@ -18,7 +18,6 @@ import (
 	"context"
 	"database/sql"
 
-	eduAPI "github.com/matrix-org/dendrite/eduserver/api"
 	"github.com/matrix-org/dendrite/internal/eventutil"
 	"github.com/matrix-org/dendrite/roomserver/api"
 	"github.com/matrix-org/dendrite/syncapi/types"
@@ -63,7 +62,7 @@ type Events interface {
 	SelectRecentEvents(ctx context.Context, txn *sql.Tx, roomID string, r types.Range, eventFilter *gomatrixserverlib.RoomEventFilter, chronologicalOrder bool, onlySyncEvents bool) ([]types.StreamEvent, bool, error)
 	// SelectEarlyEvents returns the earliest events in the given room.
 	SelectEarlyEvents(ctx context.Context, txn *sql.Tx, roomID string, r types.Range, eventFilter *gomatrixserverlib.RoomEventFilter) ([]types.StreamEvent, error)
-	SelectEvents(ctx context.Context, txn *sql.Tx, eventIDs []string) ([]types.StreamEvent, error)
+	SelectEvents(ctx context.Context, txn *sql.Tx, eventIDs []string, filter *gomatrixserverlib.RoomEventFilter, preserveOrder bool) ([]types.StreamEvent, error)
 	UpdateEventJSON(ctx context.Context, event *gomatrixserverlib.HeaderedEvent) error
 	// DeleteEventsForRoom removes all event information for a room. This should only be done when removing the room entirely.
 	DeleteEventsForRoom(ctx context.Context, txn *sql.Tx, roomID string) (err error)
@@ -90,6 +89,8 @@ type Topology interface {
 	SelectMaxPositionInTopology(ctx context.Context, txn *sql.Tx, roomID string) (depth types.StreamPosition, spos types.StreamPosition, err error)
 	// DeleteTopologyForRoom removes all topological information for a room. This should only be done when removing the room entirely.
 	DeleteTopologyForRoom(ctx context.Context, txn *sql.Tx, roomID string) (err error)
+	// SelectStreamToTopologicalPosition converts a stream position to a topological position by finding the nearest topological position in the room.
+	SelectStreamToTopologicalPosition(ctx context.Context, txn *sql.Tx, roomID string, streamPos types.StreamPosition, forward bool) (topoPos types.StreamPosition, err error)
 }
 
 type CurrentRoomState interface {
@@ -134,8 +135,10 @@ type BackwardsExtremities interface {
 	SelectBackwardExtremitiesForRoom(ctx context.Context, roomID string) (bwExtrems map[string][]string, err error)
 	// DeleteBackwardExtremity removes a backwards extremity for a room, if one existed.
 	DeleteBackwardExtremity(ctx context.Context, txn *sql.Tx, roomID, knownEventID string) (err error)
-	// DeleteBackwardExtremitiesFoorRoomID removes all backward extremities for a room. This should only be done when removing the room entirely.
-	DeleteBackwardExtremitiesForRoom(ctx context.Context, txn *sql.Tx, roomID string) (err error)
+	// DeleteBackwardExtremitiesForRoom deletes all backwards extremities for a given room.
+	DeleteBackwardExtremitiesForRoom(
+		ctx context.Context, txn *sql.Tx, roomID string,
+	) (err error)
 }
 
 // SendToDevice tracks send-to-device messages which are sent to individual
@@ -169,14 +172,14 @@ type Filter interface {
 
 type Receipts interface {
 	UpsertReceipt(ctx context.Context, txn *sql.Tx, roomId, receiptType, userId, eventId string, timestamp gomatrixserverlib.Timestamp) (pos types.StreamPosition, err error)
-	SelectRoomReceiptsAfter(ctx context.Context, roomIDs []string, streamPos types.StreamPosition) (types.StreamPosition, []eduAPI.OutputReceiptEvent, error)
+	SelectRoomReceiptsAfter(ctx context.Context, roomIDs []string, streamPos types.StreamPosition) (types.StreamPosition, []types.OutputReceiptEvent, error)
 	SelectMaxReceiptID(ctx context.Context, txn *sql.Tx) (id int64, err error)
 	PurgeRoom(ctx context.Context, txn *sql.Tx, roomID string) error
 }
 
 type Memberships interface {
 	UpsertMembership(ctx context.Context, txn *sql.Tx, event *gomatrixserverlib.HeaderedEvent, streamPos, topologicalPos types.StreamPosition) error
-	SelectMembership(ctx context.Context, txn *sql.Tx, roomID, userID, memberships []string) (eventID string, streamPos, topologyPos types.StreamPosition, err error)
+	SelectMembershipCount(ctx context.Context, txn *sql.Tx, roomID, membership string, pos types.StreamPosition) (count int, err error)
 	PurgeRoom(ctx context.Context, txn *sql.Tx, roomID string) error
 }
 
@@ -185,4 +188,16 @@ type NotificationData interface {
 	SelectUserUnreadCounts(ctx context.Context, userID string, fromExcl, toIncl types.StreamPosition) (map[string]*eventutil.NotificationData, error)
 	SelectMaxID(ctx context.Context) (int64, error)
 	PurgeRoom(ctx context.Context, txn *sql.Tx, roomID string) error
+}
+
+type Ignores interface {
+	SelectIgnores(ctx context.Context, userID string) (*types.IgnoredUsers, error)
+	UpsertIgnores(ctx context.Context, userID string, ignores *types.IgnoredUsers) error
+}
+
+type Presence interface {
+	UpsertPresence(ctx context.Context, txn *sql.Tx, userID string, statusMsg *string, presence types.Presence, lastActiveTS gomatrixserverlib.Timestamp, fromSync bool) (pos types.StreamPosition, err error)
+	GetPresenceForUser(ctx context.Context, txn *sql.Tx, userID string) (presence *types.PresenceInternal, err error)
+	GetMaxPresenceID(ctx context.Context, txn *sql.Tx) (pos types.StreamPosition, err error)
+	GetPresenceAfter(ctx context.Context, txn *sql.Tx, after types.StreamPosition) (presences map[string]*types.PresenceInternal, err error)
 }

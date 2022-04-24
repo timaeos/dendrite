@@ -48,7 +48,7 @@ func NewInputRoomForgetConsumer(
 		ctx:       process.Context(),
 		cfg:       cfg,
 		jetstream: js,
-		topic:     cfg.Matrix.JetStream.TopicFor(jetstream.InputRoomForget),
+		topic:     cfg.Matrix.JetStream.Prefixed(jetstream.InputRoomForget),
 		durable:   cfg.Matrix.JetStream.Durable("UserAPIRoomserverForgetRooomConsumer"),
 		db:        store,
 	}

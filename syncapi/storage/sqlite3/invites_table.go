@@ -61,7 +61,7 @@ const purgeInviteForRoomSQL = "DELETE FROM syncapi_invite_events WHERE room_id =
 
 type inviteEventsStatements struct {
 	db                            *sql.DB
-	streamIDStatements            *streamIDStatements
+	streamIDStatements            *StreamIDStatements
 	insertInviteEventStmt         *sql.Stmt
 	selectInviteEventsInRangeStmt *sql.Stmt
 	deleteInviteEventStmt         *sql.Stmt
@@ -69,7 +69,7 @@ type inviteEventsStatements struct {
 	purgeInviteForRoomStmt        *sql.Stmt
 }
 
-func NewSqliteInvitesTable(db *sql.DB, streamID *streamIDStatements) (tables.Invites, error) {
+func NewSqliteInvitesTable(db *sql.DB, streamID *StreamIDStatements) (tables.Invites, error) {
 	s := &inviteEventsStatements{
 		db:                 db,
 		streamIDStatements: streamID,
