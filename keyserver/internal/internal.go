@@ -19,7 +19,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"runtime/debug"
 	"sync"
 	"time"
 
@@ -667,14 +666,6 @@ func (a *KeyInternalAPI) uploadLocalDeviceKeys(ctx context.Context, req *api.Per
 	if req.OnlyDisplayNameUpdates {
 		// add the display name field from keysToStore into existingKeys
 		keysToStore = appendDisplayNames(existingKeys, keysToStore)
-	}
-
-	for _, k := range keysToStore {
-		if k.UserID == "@neilalexander:dendrite.matrix.org" {
-			debug.PrintStack()
-			logrus.Printf("XXX: Request: %+v", req)
-			logrus.Printf("XXX: Response: %+v", res)
-		}
 	}
 
 	// store the device keys and emit changes

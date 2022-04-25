@@ -17,6 +17,7 @@ package postgres
 import (
 	"context"
 	"database/sql"
+	"runtime/debug"
 	"time"
 
 	"github.com/lib/pq"
@@ -24,6 +25,7 @@ import (
 	"github.com/matrix-org/dendrite/internal/sqlutil"
 	"github.com/matrix-org/dendrite/keyserver/api"
 	"github.com/matrix-org/dendrite/keyserver/storage/tables"
+	"github.com/sirupsen/logrus"
 )
 
 var deviceKeysSchema = `
@@ -166,6 +168,11 @@ func (s *deviceKeysStatements) CountStreamIDsForUser(ctx context.Context, userID
 
 func (s *deviceKeysStatements) InsertDeviceKeys(ctx context.Context, txn *sql.Tx, keys []api.DeviceMessage) error {
 	for _, key := range keys {
+		if key.UserID == "@neilalexander:dendrite.matrix.org" {
+			debug.PrintStack()
+			logrus.Printf("XXX: InsertDeviceKeys: %+v", key)
+		}
+
 		now := time.Now().Unix()
 		_, err := sqlutil.TxStmt(txn, s.upsertDeviceKeysStmt).ExecContext(
 			ctx, key.UserID, key.DeviceID, now, string(key.KeyJSON), key.StreamID, key.DisplayName,
