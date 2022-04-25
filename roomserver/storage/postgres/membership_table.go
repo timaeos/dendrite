@@ -418,7 +418,7 @@ func (s *membershipStatements) SelectRoomForgotten(ctx context.Context, txn *sql
 	err := stmt.QueryRowContext(ctx, roomNID).Scan(&nid)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return false, nil
+			return true, nil
 		}
 		return false, err
 	}
