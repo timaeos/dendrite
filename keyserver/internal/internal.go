@@ -71,8 +71,12 @@ func (a *KeyInternalAPI) QueryKeyChanges(ctx context.Context, req *api.QueryKeyC
 
 func (a *KeyInternalAPI) PerformUploadKeys(ctx context.Context, req *api.PerformUploadKeysRequest, res *api.PerformUploadKeysResponse) {
 	res.KeyErrors = make(map[string]map[string]*api.KeyError)
-	a.uploadLocalDeviceKeys(ctx, req, res)
-	a.uploadOneTimeKeys(ctx, req, res)
+	if len(req.DeviceKeys) > 0 {
+		a.uploadLocalDeviceKeys(ctx, req, res)
+	}
+	if len(req.OneTimeKeys) > 0 {
+		a.uploadOneTimeKeys(ctx, req, res)
+	}
 }
 
 func (a *KeyInternalAPI) PerformClaimKeys(ctx context.Context, req *api.PerformClaimKeysRequest, res *api.PerformClaimKeysResponse) {
