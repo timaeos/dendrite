@@ -9,9 +9,9 @@ import (
 	"github.com/matrix-org/dendrite/clientapi/jsonerror"
 	"github.com/matrix-org/dendrite/setup/config"
 	"github.com/matrix-org/dendrite/userapi/api"
-	userdb "github.com/matrix-org/dendrite/userapi/storage"
 	"github.com/matrix-org/gomatrixserverlib"
 	"github.com/matrix-org/util"
+	"github.com/sirupsen/logrus"
 )
 
 type newPasswordRequest struct {
@@ -29,13 +29,17 @@ type newPasswordAuth struct {
 func Password(
 	req *http.Request,
 	userAPI api.UserInternalAPI,
-	accountDB userdb.Database,
 	device *api.Device,
 	cfg *config.ClientAPI,
 ) util.JSONResponse {
 	// Check that the existing password is right.
 	var r newPasswordRequest
 	r.LogoutDevices = true
+
+	logrus.WithFields(logrus.Fields{
+		"sessionId": device.SessionID,
+		"userId":    device.UserID,
+	}).Debug("Changing password")
 
 	// Unmarshal the request.
 	resErr := httputil.UnmarshalJSONRequest(req, &r)
@@ -68,7 +72,7 @@ func Password(
 
 	// Check if the existing password is correct.
 	typePassword := auth.LoginTypePassword{
-		GetAccountByPassword: accountDB.GetAccountByPassword,
+		GetAccountByPassword: userAPI.QueryAccountByPassword,
 		Config:               cfg,
 	}
 	if _, authErr := typePassword.Login(req.Context(), &r.Auth.PasswordRequest); authErr != nil {
@@ -114,6 +118,15 @@ func Password(
 		logoutRes := &api.PerformDeviceDeletionResponse{}
 		if err := userAPI.PerformDeviceDeletion(req.Context(), logoutReq, logoutRes); err != nil {
 			util.GetLogger(req.Context()).WithError(err).Error("PerformDeviceDeletion failed")
+			return jsonerror.InternalServerError()
+		}
+
+		pushersReq := &api.PerformPusherDeletionRequest{
+			Localpart: localpart,
+			SessionID: device.SessionID,
+		}
+		if err := userAPI.PerformPusherDeletion(req.Context(), pushersReq, &struct{}{}); err != nil {
+			util.GetLogger(req.Context()).WithError(err).Error("PerformPusherDeletion failed")
 			return jsonerror.InternalServerError()
 		}
 	}

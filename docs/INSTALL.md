@@ -34,6 +34,10 @@ If you want to run a polylith deployment, you also need:
 
 * A standalone [NATS Server](https://github.com/nats-io/nats-server) deployment with JetStream enabled
 
+If you want to build it on Windows, you need `gcc` in the path:
+
+* [MinGW-w64](https://www.mingw-w64.org/)
+
 ## Building Dendrite
 
 Start by cloning the code:
@@ -45,9 +49,15 @@ cd dendrite
 
 Then build it:
 
-```bash
-./build.sh
-```
+* Linux or UNIX-like systems:
+  ```bash
+  ./build.sh
+  ```
+
+* Windows:
+  ```dos
+  build.cmd
+  ```
 
 ## Install NATS Server
 
@@ -87,7 +97,7 @@ On macOS, omit `sudo -u postgres` from the below commands.
 * If you want to run each Dendrite component with its own database:
 
   ```bash
-  for i in mediaapi syncapi roomserver federationapi appservice keyserver userapi_accounts userapi_devices; do
+  for i in mediaapi syncapi roomserver federationapi appservice keyserver userapi_accounts; do
       sudo -u postgres createdb -O dendrite dendrite_$i
   done
   ```
@@ -261,14 +271,6 @@ This manages end-to-end encryption keys for users.
 
 ```bash
 ./bin/dendrite-polylith-multi --config=dendrite.yaml keyserver
-```
-
-#### EDU server
-
-This manages processing EDUs such as typing, send-to-device events and presence. Clients do not talk to
-
-```bash
-./bin/dendrite-polylith-multi --config=dendrite.yaml eduserver
 ```
 
 #### User server

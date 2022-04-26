@@ -16,6 +16,8 @@ package routing
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 	"net/http"
 	"sync"
 	"time"
@@ -43,10 +45,6 @@ type sendEventResponse struct {
 var (
 	userRoomSendMutexes sync.Map // (roomID+userID) -> mutex. mutexes to ensure correct ordering of sendEvents
 )
-
-func init() {
-	prometheus.MustRegister(sendEventDuration)
-}
 
 var sendEventDuration = prometheus.NewHistogramVec(
 	prometheus.HistogramOpts{
@@ -119,6 +117,40 @@ func SendEvent(
 		return *resErr
 	}
 	timeToGenerateEvent := time.Since(startedGeneratingEvent)
+
+	// validate that the aliases exists
+	if eventType == gomatrixserverlib.MRoomCanonicalAlias && stateKey != nil && *stateKey == "" {
+		aliasReq := api.AliasEvent{}
+		if err = json.Unmarshal(e.Content(), &aliasReq); err != nil {
+			return util.ErrorResponse(fmt.Errorf("unable to parse alias event: %w", err))
+		}
+		if !aliasReq.Valid() {
+			return util.JSONResponse{
+				Code: http.StatusBadRequest,
+				JSON: jsonerror.InvalidParam("Request contains invalid aliases."),
+			}
+		}
+		aliasRes := &api.GetAliasesForRoomIDResponse{}
+		if err = rsAPI.GetAliasesForRoomID(req.Context(), &api.GetAliasesForRoomIDRequest{RoomID: roomID}, aliasRes); err != nil {
+			return jsonerror.InternalServerError()
+		}
+		var found int
+		requestAliases := append(aliasReq.AltAliases, aliasReq.Alias)
+		for _, alias := range aliasRes.Aliases {
+			for _, altAlias := range requestAliases {
+				if altAlias == alias {
+					found++
+				}
+			}
+		}
+		// check that we found at least the same amount of existing aliases as are in the request
+		if aliasReq.Alias != "" && found < len(requestAliases) {
+			return util.JSONResponse{
+				Code: http.StatusBadRequest,
+				JSON: jsonerror.BadAlias("No matching alias found."),
+			}
+		}
+	}
 
 	var txnAndSessionID *api.TransactionID
 	if txnID != nil {
@@ -236,5 +268,24 @@ func generateSendEvent(
 			JSON: jsonerror.Forbidden(err.Error()), // TODO: Is this error string comprehensible to the client?
 		}
 	}
+
+	// User should not be able to send a tombstone event to the same room.
+	if e.Type() == "m.room.tombstone" {
+		content := make(map[string]interface{})
+		if err = json.Unmarshal(e.Content(), &content); err != nil {
+			util.GetLogger(ctx).WithError(err).Error("Cannot unmarshal the event content.")
+			return nil, &util.JSONResponse{
+				Code: http.StatusBadRequest,
+				JSON: jsonerror.BadJSON("Cannot unmarshal the event content."),
+			}
+		}
+		if content["replacement_room"] == e.RoomID() {
+			return nil, &util.JSONResponse{
+				Code: http.StatusBadRequest,
+				JSON: jsonerror.InvalidParam("Cannot send tombstone event that points to the same room."),
+			}
+		}
+	}
+
 	return e.Event, nil
 }

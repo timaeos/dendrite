@@ -18,9 +18,9 @@ import (
 	"context"
 
 	"github.com/gorilla/mux"
+	"github.com/matrix-org/dendrite/internal/caching"
 	"github.com/sirupsen/logrus"
 
-	"github.com/matrix-org/dendrite/eduserver/cache"
 	keyapi "github.com/matrix-org/dendrite/keyserver/api"
 	"github.com/matrix-org/dendrite/roomserver/api"
 	"github.com/matrix-org/dendrite/setup/config"
@@ -31,6 +31,7 @@ import (
 
 	"github.com/matrix-org/dendrite/syncapi/consumers"
 	"github.com/matrix-org/dendrite/syncapi/notifier"
+	"github.com/matrix-org/dendrite/syncapi/producers"
 	"github.com/matrix-org/dendrite/syncapi/routing"
 	"github.com/matrix-org/dendrite/syncapi/storage"
 	"github.com/matrix-org/dendrite/syncapi/streams"
@@ -48,24 +49,44 @@ func AddPublicRoutes(
 	federation *gomatrixserverlib.FederationClient,
 	cfg *config.SyncAPI,
 ) {
-	js := jetstream.Prepare(&cfg.Matrix.JetStream)
+	js, natsClient := jetstream.Prepare(process, &cfg.Matrix.JetStream)
 
 	syncDB, err := storage.NewSyncServerDatasource(&cfg.Database)
 	if err != nil {
 		logrus.WithError(err).Panicf("failed to connect to sync db")
 	}
 
-	eduCache := cache.New()
-	streams := streams.NewSyncStreamProviders(syncDB, userAPI, rsAPI, keyAPI, eduCache)
-	notifier := notifier.NewNotifier(streams.Latest(context.Background()))
+	eduCache := caching.NewTypingCache()
+	lazyLoadCache, err := caching.NewLazyLoadCache()
+	if err != nil {
+		logrus.WithError(err).Panicf("failed to create lazy loading cache")
+	}
+	notifier := notifier.NewNotifier()
+	streams := streams.NewSyncStreamProviders(syncDB, userAPI, rsAPI, keyAPI, eduCache, lazyLoadCache, notifier)
+	notifier.SetCurrentPosition(streams.Latest(context.Background()))
 	if err = notifier.Load(context.Background(), syncDB); err != nil {
 		logrus.WithError(err).Panicf("failed to load notifier ")
 	}
 
-	requestPool := sync.NewRequestPool(syncDB, cfg, userAPI, keyAPI, rsAPI, streams, notifier)
+	federationPresenceProducer := &producers.FederationAPIPresenceProducer{
+		Topic:     cfg.Matrix.JetStream.Prefixed(jetstream.OutputPresenceEvent),
+		JetStream: js,
+	}
+
+	requestPool := sync.NewRequestPool(syncDB, cfg, userAPI, keyAPI, rsAPI, streams, notifier, federationPresenceProducer)
+
+	userAPIStreamEventProducer := &producers.UserAPIStreamEventProducer{
+		JetStream: js,
+		Topic:     cfg.Matrix.JetStream.Prefixed(jetstream.OutputStreamEvent),
+	}
+
+	userAPIReadUpdateProducer := &producers.UserAPIReadProducer{
+		JetStream: js,
+		Topic:     cfg.Matrix.JetStream.Prefixed(jetstream.OutputReadUpdate),
+	}
 
 	keyChangeConsumer := consumers.NewOutputKeyChangeEventConsumer(
-		process, cfg, cfg.Matrix.JetStream.TopicFor(jetstream.OutputKeyChangeEvent),
+		process, cfg, cfg.Matrix.JetStream.Prefixed(jetstream.OutputKeyChangeEvent),
 		js, keyAPI, rsAPI, syncDB, notifier,
 		streams.DeviceListStreamProvider,
 	)
@@ -75,7 +96,7 @@ func AddPublicRoutes(
 
 	roomConsumer := consumers.NewOutputRoomEventConsumer(
 		process, cfg, js, syncDB, notifier, streams.PDUStreamProvider,
-		streams.InviteStreamProvider, rsAPI,
+		streams.InviteStreamProvider, rsAPI, userAPIStreamEventProducer,
 	)
 	if err = roomConsumer.Start(); err != nil {
 		logrus.WithError(err).Panicf("failed to start room server consumer")
@@ -83,13 +104,21 @@ func AddPublicRoutes(
 
 	clientConsumer := consumers.NewOutputClientDataConsumer(
 		process, cfg, js, syncDB, notifier, streams.AccountDataStreamProvider,
+		userAPIReadUpdateProducer,
 	)
 	if err = clientConsumer.Start(); err != nil {
 		logrus.WithError(err).Panicf("failed to start client data consumer")
 	}
 
+	notificationConsumer := consumers.NewOutputNotificationDataConsumer(
+		process, cfg, js, syncDB, notifier, streams.NotificationDataStreamProvider,
+	)
+	if err = notificationConsumer.Start(); err != nil {
+		logrus.WithError(err).Panicf("failed to start notification data consumer")
+	}
+
 	typingConsumer := consumers.NewOutputTypingEventConsumer(
-		process, cfg, js, syncDB, eduCache, notifier, streams.TypingStreamProvider,
+		process, cfg, js, eduCache, notifier, streams.TypingStreamProvider,
 	)
 	if err = typingConsumer.Start(); err != nil {
 		logrus.WithError(err).Panicf("failed to start typing consumer")
@@ -104,10 +133,20 @@ func AddPublicRoutes(
 
 	receiptConsumer := consumers.NewOutputReceiptEventConsumer(
 		process, cfg, js, syncDB, notifier, streams.ReceiptStreamProvider,
+		userAPIReadUpdateProducer,
 	)
 	if err = receiptConsumer.Start(); err != nil {
 		logrus.WithError(err).Panicf("failed to start receipts consumer")
 	}
 
-	routing.Setup(router, requestPool, syncDB, userAPI, federation, rsAPI, cfg)
+	presenceConsumer := consumers.NewPresenceConsumer(
+		process, cfg, js, natsClient, syncDB,
+		notifier, streams.PresenceStreamProvider,
+		userAPI,
+	)
+	if err = presenceConsumer.Start(); err != nil {
+		logrus.WithError(err).Panicf("failed to start presence consumer")
+	}
+
+	routing.Setup(router, requestPool, syncDB, userAPI, federation, rsAPI, cfg, lazyLoadCache)
 }

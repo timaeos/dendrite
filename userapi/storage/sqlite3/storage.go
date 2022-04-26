@@ -31,7 +31,7 @@ import (
 )
 
 // NewDatabase creates a new accounts and profiles database
-func NewDatabase(dbProperties *config.DatabaseOptions, serverName gomatrixserverlib.ServerName, bcryptCost int, openIDTokenLifetimeMS int64, loginTokenLifetime time.Duration) (*shared.Database, error) {
+func NewDatabase(dbProperties *config.DatabaseOptions, serverName gomatrixserverlib.ServerName, bcryptCost int, openIDTokenLifetimeMS int64, loginTokenLifetime time.Duration, serverNoticesLocalpart string) (*shared.Database, error) {
 	db, err := sqlutil.Open(dbProperties)
 	if err != nil {
 		return nil, err
@@ -78,13 +78,21 @@ func NewDatabase(dbProperties *config.DatabaseOptions, serverName gomatrixserver
 	if err != nil {
 		return nil, fmt.Errorf("NewSQLiteOpenIDTable: %w", err)
 	}
-	profilesTable, err := NewSQLiteProfilesTable(db)
+	profilesTable, err := NewSQLiteProfilesTable(db, serverNoticesLocalpart)
 	if err != nil {
 		return nil, fmt.Errorf("NewSQLiteProfilesTable: %w", err)
 	}
 	threePIDTable, err := NewSQLiteThreePIDTable(db)
 	if err != nil {
 		return nil, fmt.Errorf("NewSQLiteThreePIDTable: %w", err)
+	}
+	pusherTable, err := NewSQLitePusherTable(db)
+	if err != nil {
+		return nil, fmt.Errorf("NewPostgresPusherTable: %w", err)
+	}
+	notificationsTable, err := NewSQLiteNotificationTable(db)
+	if err != nil {
+		return nil, fmt.Errorf("NewPostgresNotificationTable: %w", err)
 	}
 	return &shared.Database{
 		AccountDatas:          accountDataTable,
@@ -96,6 +104,8 @@ func NewDatabase(dbProperties *config.DatabaseOptions, serverName gomatrixserver
 		OpenIDTokens:          openIDTable,
 		Profiles:              profilesTable,
 		ThreePIDs:             threePIDTable,
+		Pushers:               pusherTable,
+		Notifications:         notificationsTable,
 		ServerName:            serverName,
 		DB:                    db,
 		Writer:                sqlutil.NewExclusiveWriter(),

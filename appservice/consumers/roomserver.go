@@ -56,7 +56,7 @@ func NewOutputRoomEventConsumer(
 		ctx:          process.Context(),
 		jetstream:    js,
 		durable:      cfg.Global.JetStream.Durable("AppserviceRoomserverConsumer"),
-		topic:        cfg.Global.JetStream.TopicFor(jetstream.OutputRoomEvent),
+		topic:        cfg.Global.JetStream.Prefixed(jetstream.OutputRoomEvent),
 		asDB:         appserviceDB,
 		rsAPI:        rsAPI,
 		serverName:   string(cfg.Global.ServerName),
@@ -83,12 +83,30 @@ func (s *OutputRoomEventConsumer) onMessage(ctx context.Context, msg *nats.Msg) 
 		return true
 	}
 
-	if output.Type != api.OutputTypeNewRoomEvent {
+	if output.Type != api.OutputTypeNewRoomEvent || output.NewRoomEvent == nil {
 		return true
 	}
 
-	events := []*gomatrixserverlib.HeaderedEvent{output.NewRoomEvent.Event}
-	events = append(events, output.NewRoomEvent.AddStateEvents...)
+	newEventID := output.NewRoomEvent.Event.EventID()
+	events := make([]*gomatrixserverlib.HeaderedEvent, 0, len(output.NewRoomEvent.AddsStateEventIDs))
+	events = append(events, output.NewRoomEvent.Event)
+	if len(output.NewRoomEvent.AddsStateEventIDs) > 0 {
+		eventsReq := &api.QueryEventsByIDRequest{
+			EventIDs: make([]string, 0, len(output.NewRoomEvent.AddsStateEventIDs)),
+		}
+		eventsRes := &api.QueryEventsByIDResponse{}
+		for _, eventID := range output.NewRoomEvent.AddsStateEventIDs {
+			if eventID != newEventID {
+				eventsReq.EventIDs = append(eventsReq.EventIDs, eventID)
+			}
+		}
+		if len(eventsReq.EventIDs) > 0 {
+			if err := s.rsAPI.QueryEventsByID(s.ctx, eventsReq, eventsRes); err != nil {
+				return false
+			}
+			events = append(events, eventsRes.Events...)
+		}
+	}
 
 	// Send event to any relevant application services
 	if err := s.filterRoomserverEvents(context.TODO(), events); err != nil {

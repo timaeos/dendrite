@@ -21,7 +21,6 @@ import (
 	"strings"
 	"time"
 
-	eduapi "github.com/matrix-org/dendrite/eduserver/api"
 	"github.com/matrix-org/dendrite/keyserver/types"
 	userapi "github.com/matrix-org/dendrite/userapi/api"
 	"github.com/matrix-org/gomatrixserverlib"
@@ -66,12 +65,23 @@ const (
 
 // DeviceMessage represents the message produced into Kafka by the key server.
 type DeviceMessage struct {
-	Type                                DeviceMessageType `json:"Type,omitempty"`
-	*DeviceKeys                         `json:"DeviceKeys,omitempty"`
-	*eduapi.OutputCrossSigningKeyUpdate `json:"CrossSigningKeyUpdate,omitempty"`
+	Type                         DeviceMessageType `json:"Type,omitempty"`
+	*DeviceKeys                  `json:"DeviceKeys,omitempty"`
+	*OutputCrossSigningKeyUpdate `json:"CrossSigningKeyUpdate,omitempty"`
 	// A monotonically increasing number which represents device changes for this user.
-	StreamID       int
+	StreamID       int64
 	DeviceChangeID int64
+}
+
+// OutputCrossSigningKeyUpdate is an entry in the signing key update output kafka log
+type OutputCrossSigningKeyUpdate struct {
+	CrossSigningKeyUpdate `json:"signing_keys"`
+}
+
+type CrossSigningKeyUpdate struct {
+	MasterKey      *gomatrixserverlib.CrossSigningKey `json:"master_key,omitempty"`
+	SelfSigningKey *gomatrixserverlib.CrossSigningKey `json:"self_signing_key,omitempty"`
+	UserID         string                             `json:"user_id"`
 }
 
 // DeviceKeysEqual returns true if the device keys updates contain the
@@ -108,7 +118,7 @@ type DeviceKeys struct {
 }
 
 // WithStreamID returns a copy of this device message with the given stream ID
-func (k *DeviceKeys) WithStreamID(streamID int) DeviceMessage {
+func (k *DeviceKeys) WithStreamID(streamID int64) DeviceMessage {
 	return DeviceMessage{
 		DeviceKeys: k,
 		StreamID:   streamID,
@@ -281,7 +291,7 @@ type QueryDeviceMessagesRequest struct {
 
 type QueryDeviceMessagesResponse struct {
 	// The latest stream ID
-	StreamID int
+	StreamID int64
 	Devices  []DeviceMessage
 	Error    *KeyError
 }

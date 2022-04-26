@@ -1,5 +1,96 @@
 # Changelog
 
+## Dendrite 0.8.1 (2022-04-07)
+
+### Fixes
+
+* A bug which could result in the sync API deadlocking due to lock contention in the notifier has been fixed
+
+## Dendrite 0.8.0 (2022-04-07)
+
+### Features
+
+* Support for presence has been added
+  * Presence is not enabled by default
+  * The `global.presence.enable_inbound` and `global.presence.enable_outbound` configuration options allow configuring inbound and outbound presence separately
+* Support for room upgrades via the `/room/{roomID}/upgrade` endpoint has been added (contributed by [DavidSpenler](https://github.com/DavidSpenler), [alexkursell](https://github.com/alexkursell))
+* Support for ignoring users has been added
+* Joined and invite user counts are now sent in the `/sync` room summaries
+* Queued federation and stale device list updates will now be staggered at startup over an up-to 2 minute warm-up period, rather than happening all at once
+* Memory pressure created by the sync notifier has been reduced
+* The EDU server component has now been removed, with the work being moved to more relevant components
+
+### Fixes
+
+* It is now possible to set the `power_level_content_override` when creating a room to include power levels over 100
+* `/send_join` and `/state` responses will now not unmarshal the JSON twice
+* The stream event consumer for push notifications will no longer request membership events that are irrelevant
+* Appservices will no longer incorrectly receive state events twice
+
+## Dendrite 0.7.0 (2022-03-25)
+
+### Features
+
+* The roomserver input API will now queue all events into NATS, which provides better crash resilience
+* The roomserver input API now configures per-room consumers, which should use less memory
+* Canonical aliases can now be added and removed
+* MSC2946 Spaces Summary now works correctly, both locally and over federation
+* Healthcheck endpoints are now available at:
+  * `/_dendrite/monitor/up`, which will return 200 when Dendrite is ready to accept requests
+  * `/_dendrite/monitor/health`, which will return 200 if healthy and 503 if degraded for some reason
+* The `X-Matrix` federation authorisation header now includes a `destination` field, as per MSC3383
+* The `/sync` endpoint now uses less memory by only ranging state for rooms that the user has participated in
+* The `/messages` endpoint now accepts stream positions in both the `from` and `to` parameters
+* Dendrite will now log a warning at startup if the file descriptor limit is set too low
+* The federation client will now attempt to use HTTP/2 if available
+* The federation client will now attempt to resume TLS sessions if possible, to reduce handshake overheads
+* The built-in NATS Server has been updated to version 2.7.4
+* NATS streams that don't match the desired configuration will now be recreated automatically
+* When performing a graceful shutdown, Dendrite will now wait for NATS Server to shutdown completely, which should avoid some corruption of data on-disk
+* The `create-account` tool has seen a number of improvements, will now ask for passwords automatically
+
+### Fixes
+
+* The `/sync` endpoint will no longer lose state events when truncating the timeline for history visibility
+* The `/context` endpoint now works correctly with `lazy_load_members`
+* The `/directory/list/room/{roomID}` endpoint now correctly reports whether a room is published in the server room directory or not
+* Some bugs around appservice username validation have been fixed
+* Roomserver output messages are no longer unnecessarily inflated by state events, which should reduce the number of NATS message size errors
+* Stream IDs for device list updates are now always 64-bit, which should fix some problems when running Dendrite on a 32-bit system
+* Purging room state in the sync API has been fixed after a faulty database query was corrected
+* The federation client will now release host records for remote destinations after 5 minutes instead of holding them in memory forever
+* Remote media requests will now correctly return an error if the file cannot be found or downloaded
+* A panic in the media API that could happen when the remote file doesn't exist has been fixed
+* Various bugs around membership state and invites have been fixed
+* The memberships table will now be correctly updated when rejecting a federated invite
+* The client API and appservice API will now access the user database using the user API rather than accessing the database directly
+
+## Dendrite 0.6.5 (2022-03-04)
+
+### Features
+
+* Early support for push notifications has been added, with support for push rules, pushers, HTTP push gateways and the `/notifications` endpoint (contributions by [danpe](https://github.com/danpe), [PiotrKozimor](https://github.com/PiotrKozimor) and [tommie](https://github.com/tommie))
+* Spaces Summary (MSC2946) is now correctly supported (when `msc2946` is enabled in the config)
+* All media API endpoints are now available under the `/v3` namespace
+* Profile updates (display name and avatar) are now sent asynchronously so they shouldn't block the client for a very long time
+* State resolution v2 has been optimised further to considerably reduce the number of memory allocations
+* State resolution v2 will no longer duplicate events unnecessarily when calculating the auth difference
+* The `create-account` tool now has a `-reset-password` option for resetting the passwords of existing accounts
+* The `/sync` endpoint now calculates device list changes much more quickly with less RAM used
+* The `/messages` endpoint now lazy-loads members correctly
+
+### Fixes
+
+* Read receipts now work correctly by correcting bugs in the stream positions and receipt coalescing
+* Topological sorting of state and join responses has been corrected, which should help to reduce the number of auth problems when joining new federated rooms
+* Media thumbnails should now work properly after having unnecessarily strict rate limiting removed
+* The roomserver no longer holds transactions for as long when processing input events
+* Uploading device keys and cross-signing keys will now correctly no-op if there were no changes
+* Parameters are now remembered correctly during registration
+* Devices can now only be deleted within the appropriate UIA flow
+* The `/context` endpoint now returns 404 instead of 500 if the event was not found
+* SQLite mode will no longer leak memory as a result of not closing prepared statements
+
 ## Dendrite 0.6.4 (2022-02-21)
 
 ### Features
@@ -210,9 +301,9 @@
 
 ### Fixes
 
-- **SECURITY:** A bug in SQLite mode which could cause the registration flow to complete unexpectedly for existing accounts has been fixed (PostgreSQL deployments are not affected)
-- A panic in the federation sender has been fixed when shutting down destination queues
-- The `/keys/upload` endpoint now correctly returns the number of one-time keys in response to an empty upload request
+* **SECURITY:** A bug in SQLite mode which could cause the registration flow to complete unexpectedly for existing accounts has been fixed (PostgreSQL deployments are not affected)
+* A panic in the federation sender has been fixed when shutting down destination queues
+* The `/keys/upload` endpoint now correctly returns the number of one-time keys in response to an empty upload request
 
 ## Dendrite 0.3.10 (2021-02-17)
 

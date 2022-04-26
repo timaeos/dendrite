@@ -32,8 +32,6 @@ import (
 	"github.com/matrix-org/dendrite/cmd/dendrite-demo-yggdrasil/signing"
 	"github.com/matrix-org/dendrite/cmd/dendrite-demo-yggdrasil/yggconn"
 	"github.com/matrix-org/dendrite/cmd/dendrite-demo-yggdrasil/yggrooms"
-	"github.com/matrix-org/dendrite/eduserver"
-	"github.com/matrix-org/dendrite/eduserver/cache"
 	"github.com/matrix-org/dendrite/federationapi"
 	"github.com/matrix-org/dendrite/federationapi/api"
 	"github.com/matrix-org/dendrite/internal"
@@ -111,17 +109,14 @@ func main() {
 	keyRing := serverKeyAPI.KeyRing()
 
 	keyAPI := keyserver.NewInternalAPI(base, &base.Cfg.KeyServer, federation)
-	userAPI := userapi.NewInternalAPI(accountDB, &cfg.UserAPI, nil, keyAPI)
-	keyAPI.SetUserAPI(userAPI)
 
 	rsComponent := roomserver.NewInternalAPI(
 		base,
 	)
 	rsAPI := rsComponent
 
-	eduInputAPI := eduserver.NewInternalAPI(
-		base, cache.New(), userAPI,
-	)
+	userAPI := userapi.NewInternalAPI(base, accountDB, &cfg.UserAPI, nil, keyAPI, rsAPI, base.PushGatewayHTTPClient())
+	keyAPI.SetUserAPI(userAPI)
 
 	asAPI := appservice.NewInternalAPI(base, userAPI, rsAPI)
 	rsAPI.SetAppserviceAPI(asAPI)
@@ -138,12 +133,11 @@ func main() {
 		FedClient: federation,
 		KeyRing:   keyRing,
 
-		AppserviceAPI:  asAPI,
-		EDUInternalAPI: eduInputAPI,
-		FederationAPI:  fsAPI,
-		RoomserverAPI:  rsAPI,
-		UserAPI:        userAPI,
-		KeyAPI:         keyAPI,
+		AppserviceAPI: asAPI,
+		FederationAPI: fsAPI,
+		RoomserverAPI: rsAPI,
+		UserAPI:       userAPI,
+		KeyAPI:        keyAPI,
 		ExtPublicRoomsProvider: yggrooms.NewYggdrasilRoomProvider(
 			ygg, fsAPI, federation,
 		),

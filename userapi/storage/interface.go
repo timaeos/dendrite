@@ -21,14 +21,20 @@ import (
 
 	"github.com/matrix-org/dendrite/clientapi/auth/authtypes"
 	"github.com/matrix-org/dendrite/userapi/api"
+	"github.com/matrix-org/dendrite/userapi/storage/tables"
 )
 
-type Database interface {
-	GetAccountByPassword(ctx context.Context, localpart, plaintextPassword string) (*api.Account, error)
+type Profile interface {
 	GetProfileByLocalpart(ctx context.Context, localpart string) (*authtypes.Profile, error)
+	SearchProfiles(ctx context.Context, searchString string, limit int) ([]authtypes.Profile, error)
 	SetPassword(ctx context.Context, localpart string, plaintextPassword string) error
 	SetAvatarURL(ctx context.Context, localpart string, avatarURL string) error
 	SetDisplayName(ctx context.Context, localpart string, displayName string) error
+}
+
+type Database interface {
+	Profile
+	GetAccountByPassword(ctx context.Context, localpart, plaintextPassword string) (*api.Account, error)
 	// CreateAccount makes a new account with the given login name and password, and creates an empty profile
 	// for this account. If no password is supplied, the account will be a passwordless account. If the
 	// account already exists, it will return nil, ErrUserExists.
@@ -47,7 +53,6 @@ type Database interface {
 	GetThreePIDsForLocalpart(ctx context.Context, localpart string) (threepids []authtypes.ThreePID, err error)
 	CheckAccountAvailability(ctx context.Context, localpart string) (bool, error)
 	GetAccountByLocalpart(ctx context.Context, localpart string) (*api.Account, error)
-	SearchProfiles(ctx context.Context, searchString string, limit int) ([]authtypes.Profile, error)
 	DeactivateAccount(ctx context.Context, localpart string) (err error)
 	CreateOpenIDToken(ctx context.Context, token, localpart string) (exp int64, err error)
 	GetOpenIDTokenAttributes(ctx context.Context, token string) (*api.OpenIDTokenAttributes, error)
@@ -89,6 +94,19 @@ type Database interface {
 	// GetLoginTokenDataByToken returns the data associated with the given token.
 	// May return sql.ErrNoRows.
 	GetLoginTokenDataByToken(ctx context.Context, token string) (*api.LoginTokenData, error)
+
+	InsertNotification(ctx context.Context, localpart, eventID string, pos int64, tweaks map[string]interface{}, n *api.Notification) error
+	DeleteNotificationsUpTo(ctx context.Context, localpart, roomID string, pos int64) (affected bool, err error)
+	SetNotificationsRead(ctx context.Context, localpart, roomID string, pos int64, b bool) (affected bool, err error)
+	GetNotifications(ctx context.Context, localpart string, fromID int64, limit int, filter tables.NotificationFilter) ([]*api.Notification, int64, error)
+	GetNotificationCount(ctx context.Context, localpart string, filter tables.NotificationFilter) (int64, error)
+	GetRoomNotificationCounts(ctx context.Context, localpart, roomID string) (total int64, highlight int64, _ error)
+	DeleteOldNotifications(ctx context.Context) error
+
+	UpsertPusher(ctx context.Context, p api.Pusher, localpart string) error
+	GetPushers(ctx context.Context, localpart string) ([]api.Pusher, error)
+	RemovePusher(ctx context.Context, appid, pushkey, localpart string) error
+	RemovePushers(ctx context.Context, appid, pushkey string) error
 }
 
 // Err3PIDInUse is the error returned when trying to save an association involving

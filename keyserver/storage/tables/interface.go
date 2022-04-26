@@ -37,7 +37,7 @@ type OneTimeKeys interface {
 type DeviceKeys interface {
 	SelectDeviceKeysJSON(ctx context.Context, keys []api.DeviceMessage) error
 	InsertDeviceKeys(ctx context.Context, txn *sql.Tx, keys []api.DeviceMessage) error
-	SelectMaxStreamIDForUser(ctx context.Context, txn *sql.Tx, userID string) (streamID int32, err error)
+	SelectMaxStreamIDForUser(ctx context.Context, txn *sql.Tx, userID string) (streamID int64, err error)
 	CountStreamIDsForUser(ctx context.Context, userID string, streamIDs []int64) (int, error)
 	SelectBatchDeviceKeys(ctx context.Context, userID string, deviceIDs []string, includeEmpty bool) ([]api.DeviceMessage, error)
 	DeleteDeviceKeys(ctx context.Context, txn *sql.Tx, userID, deviceID string) error
@@ -64,7 +64,7 @@ type CrossSigningKeys interface {
 }
 
 type CrossSigningSigs interface {
-	SelectCrossSigningSigsForTarget(ctx context.Context, txn *sql.Tx, targetUserID string, targetKeyID gomatrixserverlib.KeyID) (r types.CrossSigningSigMap, err error)
+	SelectCrossSigningSigsForTarget(ctx context.Context, txn *sql.Tx, originUserID, targetUserID string, targetKeyID gomatrixserverlib.KeyID) (r types.CrossSigningSigMap, err error)
 	UpsertCrossSigningSigsForTarget(ctx context.Context, txn *sql.Tx, originUserID string, originKeyID gomatrixserverlib.KeyID, targetUserID string, targetKeyID gomatrixserverlib.KeyID, signature gomatrixserverlib.Base64Bytes) error
 	DeleteCrossSigningSigsForTarget(ctx context.Context, txn *sql.Tx, targetUserID string, targetKeyID gomatrixserverlib.KeyID) error
 }
