@@ -53,6 +53,7 @@ func newSyncRequest(req *http.Request, device userapi.Device, syncDB storage.Dat
 		// by default, otherwise clients do weird things while waiting
 		// for the rest of the data to trickle down.
 		filter.AccountData.Limit = math.MaxInt
+		filter.Room.AccountData.Limit = math.MaxInt
 	}
 	filterQuery := req.URL.Query().Get("filter")
 	if filterQuery != "" {
