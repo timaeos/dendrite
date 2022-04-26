@@ -18,6 +18,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"math"
 	"net/http"
 	"strconv"
 	"time"
@@ -47,6 +48,12 @@ func newSyncRequest(req *http.Request, device userapi.Device, syncDB storage.Dat
 	}
 	// TODO: read from stored filters too
 	filter := gomatrixserverlib.DefaultFilter()
+	if since.IsEmpty() {
+		// Send as much account data down for complete syncs as possible
+		// by default, otherwise clients do weird things while waiting
+		// for the rest of the data to trickle down.
+		filter.AccountData.Limit = math.MaxInt
+	}
 	filterQuery := req.URL.Query().Get("filter")
 	if filterQuery != "" {
 		if filterQuery[0] == '{' {
