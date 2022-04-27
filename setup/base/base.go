@@ -471,11 +471,9 @@ func (b *BaseDendrite) SetupAndServeHTTP(
 	minwinsvc.SetOnExit(b.ProcessContext.ShutdownDendrite)
 	b.WaitForShutdown()
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	_ = internalServ.Shutdown(ctx)
-	_ = externalServ.Shutdown(ctx)
+	logrus.Infof("Stopping HTTP listeners")
+	_ = internalServ.Shutdown(context.Background())
+	_ = externalServ.Shutdown(context.Background())
 	logrus.Infof("Stopped HTTP listeners")
 }
 
