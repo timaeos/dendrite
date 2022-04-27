@@ -141,7 +141,7 @@ func (s *membershipsStatements) SelectHeroes(
 func (s *membershipsStatements) DeleteMembership(
 	ctx context.Context, txn *sql.Tx, roomID, userID string,
 ) error {
-	stmt := sqlutil.TxStmt(txn, s.selectMembershipCountStmt)
+	stmt := sqlutil.TxStmt(txn, s.deleteMembershipStmt)
 	_, err := stmt.ExecContext(ctx, roomID, userID)
 	return err
 }
