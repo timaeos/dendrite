@@ -66,11 +66,15 @@ const selectMembershipCountSQL = "" +
 const selectHeroesSQL = "" +
 	"SELECT DISTINCT user_id FROM syncapi_memberships WHERE room_id = $1 AND user_id != $2 AND membership IN ($3) LIMIT 5"
 
+const deleteMembershipSQL = "" +
+	"DELETE FROM syncapi_memberships WHERE room_id = $1 AND user_id = $2"
+
 type membershipsStatements struct {
 	db                        *sql.DB
 	upsertMembershipStmt      *sql.Stmt
 	selectMembershipCountStmt *sql.Stmt
 	//selectHeroesStmt          *sql.Stmt - prepared at runtime due to variadic
+	deleteMembershipStmt *sql.Stmt
 }
 
 func NewSqliteMembershipsTable(db *sql.DB) (tables.Memberships, error) {
@@ -85,6 +89,7 @@ func NewSqliteMembershipsTable(db *sql.DB) (tables.Memberships, error) {
 		{&s.upsertMembershipStmt, upsertMembershipSQL},
 		{&s.selectMembershipCountStmt, selectMembershipCountSQL},
 		// {&s.selectHeroesStmt, selectHeroesSQL}, - prepared at runtime due to variadic
+		{&s.deleteMembershipStmt, deleteMembershipSQL},
 	}.Prepare(db)
 }
 
@@ -147,4 +152,12 @@ func (s *membershipsStatements) SelectHeroes(
 		heroes = append(heroes, hero)
 	}
 	return heroes, rows.Err()
+}
+
+func (s *membershipsStatements) DeleteMembership(
+	ctx context.Context, txn *sql.Tx, roomID, userID string,
+) error {
+	stmt := sqlutil.TxStmt(txn, s.selectMembershipCountStmt)
+	_, err := stmt.ExecContext(ctx, roomID, userID)
+	return err
 }

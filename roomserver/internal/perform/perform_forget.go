@@ -16,13 +16,16 @@ package perform
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/matrix-org/dendrite/roomserver/api"
+	"github.com/matrix-org/dendrite/roomserver/internal/input"
 	"github.com/matrix-org/dendrite/roomserver/storage"
 )
 
 type Forgetter struct {
-	DB storage.Database
+	DB      storage.Database
+	Inputer *input.Inputer
 }
 
 // PerformForget implements api.RoomServerQueryAPI
@@ -31,5 +34,16 @@ func (f *Forgetter) PerformForget(
 	request *api.PerformForgetRequest,
 	response *api.PerformForgetResponse,
 ) error {
-	return f.DB.ForgetRoom(ctx, request.UserID, request.RoomID, true)
+	if err := f.DB.ForgetRoom(ctx, request.UserID, request.RoomID, true); err != nil {
+		return fmt.Errorf("f.DB.ForgetRoom: %w", err)
+	}
+	return f.Inputer.WriteOutputEvents(request.RoomID, []api.OutputEvent{
+		{
+			Type: api.OutputForgetRoomEvent,
+			ForgetRoom: &api.OutputForgetRoom{
+				RoomID: request.RoomID,
+				UserID: request.UserID,
+			},
+		},
+	})
 }

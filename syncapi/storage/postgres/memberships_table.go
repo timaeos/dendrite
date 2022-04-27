@@ -66,10 +66,14 @@ const selectMembershipCountSQL = "" +
 const selectHeroesSQL = "" +
 	"SELECT user_id FROM syncapi_memberships WHERE room_id = $1 AND user_id != $2 AND membership = ANY($3) LIMIT 5"
 
+const deleteMembershipSQL = "" +
+	"DELETE FROM syncapi_memberships WHERE room_id = $1 AND user_id = $2"
+
 type membershipsStatements struct {
 	upsertMembershipStmt      *sql.Stmt
 	selectMembershipCountStmt *sql.Stmt
 	selectHeroesStmt          *sql.Stmt
+	deleteMembershipStmt      *sql.Stmt
 }
 
 func NewPostgresMembershipsTable(db *sql.DB) (tables.Memberships, error) {
@@ -82,6 +86,7 @@ func NewPostgresMembershipsTable(db *sql.DB) (tables.Memberships, error) {
 		{&s.upsertMembershipStmt, upsertMembershipSQL},
 		{&s.selectMembershipCountStmt, selectMembershipCountSQL},
 		{&s.selectHeroesStmt, selectHeroesSQL},
+		{&s.deleteMembershipStmt, deleteMembershipSQL},
 	}.Prepare(db)
 }
 
@@ -131,4 +136,12 @@ func (s *membershipsStatements) SelectHeroes(
 		heroes = append(heroes, hero)
 	}
 	return heroes, rows.Err()
+}
+
+func (s *membershipsStatements) DeleteMembership(
+	ctx context.Context, txn *sql.Tx, roomID, userID string,
+) error {
+	stmt := sqlutil.TxStmt(txn, s.selectMembershipCountStmt)
+	_, err := stmt.ExecContext(ctx, roomID, userID)
+	return err
 }

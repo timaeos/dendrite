@@ -128,6 +128,10 @@ func (d *Database) GetRoomHeroes(ctx context.Context, roomID, userID string, mem
 	return d.Memberships.SelectHeroes(ctx, nil, roomID, userID, memberships)
 }
 
+func (d *Database) DeleteMembership(ctx context.Context, roomID, userID string) error {
+	return d.Memberships.DeleteMembership(ctx, nil, roomID, userID)
+}
+
 func (d *Database) RecentEvents(ctx context.Context, roomID string, r types.Range, eventFilter *gomatrixserverlib.RoomEventFilter, chronologicalOrder bool, onlySyncEvents bool) ([]types.StreamEvent, bool, error) {
 	return d.OutputEvents.SelectRecentEvents(ctx, nil, roomID, r, eventFilter, chronologicalOrder, onlySyncEvents)
 }

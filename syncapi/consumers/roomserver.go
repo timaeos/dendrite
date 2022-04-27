@@ -31,6 +31,7 @@ import (
 	"github.com/matrix-org/dendrite/syncapi/types"
 	"github.com/matrix-org/gomatrixserverlib"
 	"github.com/nats-io/nats.go"
+	"github.com/sirupsen/logrus"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -122,6 +123,8 @@ func (s *OutputRoomEventConsumer) onMessage(ctx context.Context, msg *nats.Msg) 
 		s.onRetirePeek(s.ctx, *output.RetirePeek)
 	case api.OutputTypeRedactedEvent:
 		err = s.onRedactEvent(s.ctx, *output.RedactedEvent)
+	case api.OutputForgetRoomEvent:
+		s.onForgetRoom(s.ctx, *output.ForgetRoom)
 	default:
 		log.WithField("type", output.Type).Debug(
 			"roomserver output log: ignoring unknown output type",
@@ -407,6 +410,17 @@ func (s *OutputRoomEventConsumer) onRetirePeek(
 	// index as PDUs, but we should fix this
 	s.pduStream.Advance(sp)
 	s.notifier.OnRetirePeek(msg.RoomID, msg.UserID, msg.DeviceID, types.StreamingToken{PDUPosition: sp})
+}
+
+func (s *OutputRoomEventConsumer) onForgetRoom(
+	ctx context.Context, msg api.OutputForgetRoom,
+) {
+	if err := s.db.DeleteMembership(ctx, msg.RoomID, msg.UserID); err != nil {
+		log.WithError(err).WithFields(logrus.Fields{
+			"room_id": msg.RoomID,
+			"user_id": msg.UserID,
+		}).Error("Failed to forget room")
+	}
 }
 
 func (s *OutputRoomEventConsumer) updateStateEvent(event *gomatrixserverlib.HeaderedEvent) (*gomatrixserverlib.HeaderedEvent, error) {

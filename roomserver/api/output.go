@@ -55,6 +55,9 @@ const (
 	OutputTypeNewInboundPeek OutputType = "new_inbound_peek"
 	// OutputTypeRetirePeek indicates that the kafka event is an OutputRetirePeek
 	OutputTypeRetirePeek OutputType = "retire_peek"
+	// OutputForgetRoomEvent indicates the user wants to forget a given room so downstream
+	// components can clean up.
+	OutputForgetRoomEvent OutputType = "forget_room"
 )
 
 // An OutputEvent is an entry in the roomserver output kafka log.
@@ -78,6 +81,8 @@ type OutputEvent struct {
 	NewInboundPeek *OutputNewInboundPeek `json:"new_inbound_peek,omitempty"`
 	// The content of event with type OutputTypeRetirePeek
 	RetirePeek *OutputRetirePeek `json:"retire_peek,omitempty"`
+	// The content of the event with type OutputForgetRoom
+	ForgetRoom *OutputForgetRoom `json:"forget_room,omitempty"`
 }
 
 // Type of the OutputNewRoomEvent.
@@ -240,4 +245,9 @@ type OutputRetirePeek struct {
 	RoomID   string
 	UserID   string
 	DeviceID string
+}
+
+type OutputForgetRoom struct {
+	RoomID string
+	UserID string
 }

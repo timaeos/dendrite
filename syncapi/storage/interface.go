@@ -40,6 +40,7 @@ type Database interface {
 	RoomIDsWithMembership(ctx context.Context, userID string, membership string) ([]string, error)
 	MembershipCount(ctx context.Context, roomID, membership string, pos types.StreamPosition) (int, error)
 	GetRoomHeroes(ctx context.Context, roomID, userID string, memberships []string) ([]string, error)
+	DeleteMembership(ctx context.Context, roomID, userID string) error
 
 	RecentEvents(ctx context.Context, roomID string, r types.Range, eventFilter *gomatrixserverlib.RoomEventFilter, chronologicalOrder bool, onlySyncEvents bool) ([]types.StreamEvent, bool, error)
 

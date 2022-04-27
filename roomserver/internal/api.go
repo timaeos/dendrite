@@ -158,7 +158,8 @@ func (r *RoomserverInternalAPI) SetFederationAPI(fsAPI fsAPI.FederationInternalA
 		PreferServers: r.PerspectiveServerNames,
 	}
 	r.Forgetter = &perform.Forgetter{
-		DB: r.DB,
+		DB:      r.DB,
+		Inputer: r.Inputer,
 	}
 	r.Upgrader = &perform.Upgrader{
 		Cfg:    r.Cfg,
