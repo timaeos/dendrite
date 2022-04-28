@@ -17,6 +17,7 @@ package sqlite3
 import (
 	"context"
 	"database/sql"
+	"time"
 
 	"github.com/matrix-org/dendrite/internal"
 	"github.com/matrix-org/dendrite/internal/sqlutil"
@@ -71,7 +72,7 @@ const selectMaxPresenceSQL = "" +
 const selectPresenceAfter = "" +
 	" SELECT id, user_id, presence, status_msg, last_active_ts" +
 	" FROM syncapi_presence" +
-	" WHERE id > $1"
+	" WHERE id > $1 AND last_active_ts >= $2"
 
 type presenceStatements struct {
 	db                         *sql.DB
@@ -163,7 +164,8 @@ func (p *presenceStatements) GetPresenceAfter(
 	presences = make(map[string]*types.PresenceInternal)
 	stmt := sqlutil.TxStmt(txn, p.selectPresenceAfterStmt)
 
-	rows, err := stmt.QueryContext(ctx, after)
+	ts := gomatrixserverlib.AsTimestamp(time.Now().Add(time.Minute * -5))
+	rows, err := stmt.QueryContext(ctx, after, ts)
 	if err != nil {
 		return nil, err
 	}
